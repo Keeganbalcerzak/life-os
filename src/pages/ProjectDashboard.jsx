@@ -272,6 +272,7 @@ export default function ProjectDashboard({
           </div>
           <div className="project-create-actions">
             <motion.button
+              className="secondary-button"
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.98 }}
               type="submit"
