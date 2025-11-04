@@ -73,48 +73,43 @@ export default function TagPreferences({ tasks, value, onChange, alwaysOpen = fa
                 const bd = pref.color ? hexToRGBA(pref.color, 0.6) : undefined;
                 return (
                   <div key={t} className="tag-pref-row">
-                    <div className="tag-pref-header">
-                      <span className="tag-chip" style={{ background: bg, borderColor: bd }}>
-                        {pref.icon ? <span style={{ marginRight: 6 }}>{pref.icon}</span> : null}
-                        {t}
-                      </span>
-                    </div>
-                    <div className="tag-pref-fields">
-                      <label className="tag-pref-field">
-                        <span>Color</span>
-                        <input type="color" value={pref.color || '#3b82f6'} onChange={(e) => updateTag(t, { color: e.target.value })} />
-                      </label>
-                      <label className="tag-pref-field">
-                        <span>Icon</span>
-                        <input type="text" maxLength={2} placeholder="✨" value={pref.icon || ''} onChange={(e) => updateTag(t, { icon: e.target.value })} />
-                      </label>
-                      <label className="tag-pref-field">
-                        <span>Parent</span>
-                        <input
-                          type="text"
-                          placeholder="(optional) Parent tag"
-                          value={pref.parent || ''}
-                          onChange={(e) => updateTag(t, { parent: e.target.value })}
-                          list="tag-parent-suggestions"
-                        />
-                      </label>
-                      <label className="tag-pref-field">
-                        <span>Automation</span>
-                        <select
-                          value={pref.automation || ''}
-                          onChange={(e) => updateTag(t, { automation: e.target.value })}
-                        >
-                          <option value="">None</option>
-                          <option value="priority:low">Set priority: Low</option>
-                          <option value="priority:medium">Set priority: Medium</option>
+                    <span className="tag-chip" style={{ background: bg, borderColor: bd }}>
+                      {pref.icon ? <span style={{ marginRight: 6 }}>{pref.icon}</span> : null}
+                      {t}
+                    </span>
+                    <label className="tag-pref-field">
+                      <span>Color</span>
+                      <input type="color" value={pref.color || '#3b82f6'} onChange={(e) => updateTag(t, { color: e.target.value })} />
+                    </label>
+                    <label className="tag-pref-field">
+                      <span>Icon</span>
+                      <input type="text" maxLength={2} placeholder="✨" value={pref.icon || ''} onChange={(e) => updateTag(t, { icon: e.target.value })} />
+                    </label>
+                    <label className="tag-pref-field">
+                      <span>Parent</span>
+                      <input
+                        type="text"
+                        placeholder="(optional) Parent tag"
+                        value={pref.parent || ''}
+                        onChange={(e) => updateTag(t, { parent: e.target.value })}
+                        list="tag-parent-suggestions"
+                      />
+                    </label>
+                    <label className="tag-pref-field">
+                      <span>Automation</span>
+                      <select
+                        value={pref.automation || ''}
+                        onChange={(e) => updateTag(t, { automation: e.target.value })}
+                      >
+                        <option value="">None</option>
+                        <option value="priority:low">Set priority: Low</option>
+                        <option value="priority:medium">Set priority: Medium</option>
                         <option value="priority:high">Set priority: High</option>
-                        <option value="priority:milestone">Set priority: Milestone</option>
-                          <option value="status:not_started">Set status: Not Started</option>
-                          <option value="status:started">Set status: Started</option>
-                          <option value="status:focusing">Set status: Focusing</option>
-                        </select>
-                      </label>
-                    </div>
+                        <option value="status:not_started">Set status: Not Started</option>
+                        <option value="status:started">Set status: Started</option>
+                        <option value="status:focusing">Set status: Focusing</option>
+                      </select>
+                    </label>
                   </div>
                 );
               })}

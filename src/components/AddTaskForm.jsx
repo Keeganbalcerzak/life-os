@@ -1,23 +1,21 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 const PRIORITY_OPTIONS = [
   { value: 'low', label: 'Low', dust: 5, color: '#3b82f6' },
   { value: 'medium', label: 'Medium', dust: 10, color: '#06b6d4' },
   { value: 'high', label: 'High', dust: 20, color: '#facc15' },
-  { value: 'milestone', label: 'Milestone', dust: 50, color: '#f97316' },
 ];
 
-export default function AddTaskForm({ onAdd, availableTags = [], projects = [], onOpenProjects }) {
+export default function AddTaskForm({ onAdd }) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [isExpanded, setIsExpanded] = useState(false);
   const [priority, setPriority] = useState(null);
   const [tags, setTags] = useState([]);
   const [tagInput, setTagInput] = useState('');
-  const [projectId, setProjectId] = useState('');
 
-  const DEFAULT_TAGS = Array.from(new Set(['Work', 'Personal', 'Health', 'Learning', ...availableTags]));
+  const DEFAULT_TAGS = ['Work', 'Personal', 'Health', 'Learning'];
 
   // Simple content → tag heuristics
   const KEYWORD_MAP = [
@@ -26,18 +24,6 @@ export default function AddTaskForm({ onAdd, availableTags = [], projects = [], 
     { tag: 'Health',    rx: /(health|workout|gym|run|walk|yoga|doctor|dentist|sleep|medicat|therapy|hydrate)/i },
     { tag: 'Learning',  rx: /(learn|study|course|class|read|tutorial|lesson|practice|research)/i },
   ];
-
-  const projectOptions = projects || [];
-  useEffect(() => {
-    if (projectOptions.length === 0) {
-      setProjectId('');
-      return;
-    }
-    setProjectId((prev) => {
-      if (prev && projectOptions.some((p) => p.id === prev)) return prev;
-      return projectOptions[0]?.id || '';
-    });
-  }, [projectOptions]);
 
   const norm = (t) => t.trim().replace(/\s+/g, ' ');
   const addTag = (t) => {
@@ -80,7 +66,6 @@ export default function AddTaskForm({ onAdd, availableTags = [], projects = [], 
       description: description.trim(),
       priority: selectedPriority,
       tags,
-      projectId: projectId || null,
       status: 'not_started',
       completed: false,
     });
@@ -215,42 +200,7 @@ export default function AddTaskForm({ onAdd, availableTags = [], projects = [], 
                 ))}
               </div>
             </motion.div>
-
-            <motion.div
-              className="project-selector"
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.2, delay: 0.1 }}
-            >
-              <div className="project-selector-row">
-                <label className="priority-label">Assign to project:</label>
-                <div className="project-selector-controls">
-                  <select
-                    className="project-select"
-                    value={projectId}
-                    onChange={(e) => setProjectId(e.target.value)}
-                  >
-                    <option value="">No Project</option>
-                    {projectOptions.map((project) => (
-                      <option key={project.id} value={project.id}>
-                        {project.name}
-                      </option>
-                    ))}
-                  </select>
-                  {onOpenProjects && (
-                    <button
-                      type="button"
-                      className="secondary-button"
-                      onClick={onOpenProjects}
-                    >
-                      Manage
-                    </button>
-                  )}
-                </div>
-              </div>
-            </motion.div>
-
+            
             <motion.div
               className="priority-selector"
               initial={{ height: 0, opacity: 0 }}

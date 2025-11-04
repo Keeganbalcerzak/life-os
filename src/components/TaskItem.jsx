@@ -13,15 +13,14 @@ const PRIORITY_LABELS = {
   low: 'Low',
   medium: 'Medium',
   high: 'High',
-  milestone: 'Milestone',
 };
 
 const PRIORITY_COLORS = {
   low: '#3b82f6',
   medium: '#06b6d4',
   high: '#facc15',
-  milestone: '#f97316',
 };
+
 // Animation variants for each status change
 const statusAnimations = {
   not_started: {
@@ -58,16 +57,7 @@ function hexToRGBA(hex, alpha) {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-export default function TaskItem({
-  task,
-  onStatusChange,
-  onDelete,
-  onUpdate,
-  crackingTask,
-  reservoirPosition,
-  tagPrefs = {},
-  projectInfo = null,
-}) {
+export default function TaskItem({ task, onStatusChange, onDelete, onUpdate, crackingTask, reservoirPosition, tagPrefs = {} }) {
   const [isHovered, setIsHovered] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -82,12 +72,12 @@ export default function TaskItem({
   // Get container dimensions
   useEffect(() => {
     if (!taskItemRef.current) return;
-
+    
     const updateSize = () => {
       const rect = taskItemRef.current.getBoundingClientRect();
       setContainerSize({ width: rect.width, height: rect.height });
     };
-
+    
     updateSize();
     window.addEventListener('resize', updateSize);
     return () => window.removeEventListener('resize', updateSize);
@@ -97,20 +87,19 @@ export default function TaskItem({
     if (!statusButtonRef.current || !taskItemRef.current) {
       return { x: 15, y: 50 }; // Default to left side where button typically is
     }
-
+    
     const buttonRect = statusButtonRef.current.getBoundingClientRect();
     const taskRect = taskItemRef.current.getBoundingClientRect();
-
+    
     // Get position relative to task item in percentages
     const x = ((buttonRect.left + buttonRect.width / 2 - taskRect.left) / taskRect.width) * 100;
     const y = ((buttonRect.top + buttonRect.height / 2 - taskRect.top) / taskRect.height) * 100;
-
+    
     return { x, y };
   };
 
   const statusColor = STATUS_COLORS[task.status] || STATUS_COLORS.not_started;
   const priorityColor = PRIORITY_COLORS[task.priority] || PRIORITY_COLORS.medium;
-  const projectBadgeColor = projectInfo?.color || '#6366f1';
 
   // Focus title input when editing starts
   useEffect(() => {
@@ -325,16 +314,6 @@ export default function TaskItem({
                   {PRIORITY_LABELS[task.priority]}
                 </span>
               </div>
-              {projectInfo && (
-                <div className="task-project-row">
-                  <span
-                    className="task-project-badge"
-                    style={{ '--project-color': projectBadgeColor }}
-                  >
-                    {projectInfo.name}
-                  </span>
-                </div>
-              )}
               {Array.isArray(task.tags) && task.tags.length > 0 && (
                 <div className="tag-list" style={{ marginTop: '0.5rem' }}>
                   {task.tags.map((t) => {
