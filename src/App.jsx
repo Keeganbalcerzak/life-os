@@ -801,6 +801,7 @@ function App() {
         <CompletedTasks 
           completedTasks={completedTasks} 
           onBack={() => setShowCompleted(false)}
+          onDelete={handleDeleteTask}
         />
       </div>
     );

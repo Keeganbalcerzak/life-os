@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { useState } from 'react';
 
-export default function CompletedTasks({ completedTasks, onBack }) {
+export default function CompletedTasks({ completedTasks, onBack, onDelete }) {
   const [expandedDate, setExpandedDate] = useState(null);
 
   // Group tasks by date
@@ -119,6 +119,17 @@ export default function CompletedTasks({ completedTasks, onBack }) {
                             </span>
                           </div>
                         </div>
+                        {onDelete && (
+                          <motion.button
+                            className="completed-task-delete"
+                            onClick={() => onDelete(task.id)}
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
+                            title="Delete this task permanently"
+                          >
+                            ×
+                          </motion.button>
+                        )}
                       </motion.div>
                     ))}
                 </motion.div>
