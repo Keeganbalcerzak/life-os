@@ -51,32 +51,49 @@ export default function AddTaskForm({ onAdd, projects = [], onOpenProjects, tagP
     { tag: 'Learning',  rx: /(learn|study|course|class|read|tutorial|lesson|practice|research)/i },
   ];
 
-  const norm = (t) => t.trim().replace(/\s+/g, ' ');
+  const norm = (t) => {
+    if (!t || typeof t !== 'string') return '';
+    return t.trim().replace(/\s+/g, ' ');
+  };
   const addTag = (t) => {
+    if (!t) return;
     const val = norm(t);
     if (!val) return;
-    if (tags.map((x) => x.toLowerCase()).includes(val.toLowerCase())) return;
-    setTags((prev) => [...prev, val]);
-  };
-  const removeTag = (t) => setTags((prev) => prev.filter((x) => x !== t));
-
-  const content = `${title} ${description}`.trim();
-  const smartSuggested = (() => {
-    if (!content) return [];
-    const pool = new Set();
-    KEYWORD_MAP.forEach(({ tag, rx }) => {
-      if (rx.test(content)) pool.add(tag);
+    setTags((prev) => {
+      const prevLower = prev.map((x) => String(x).toLowerCase());
+      if (prevLower.includes(val.toLowerCase())) return prev;
+      return [...prev, val];
     });
-    // Don't suggest already chosen or typed as exact tag
-    const chosen = tags.map((t) => t.toLowerCase());
-    const list = Array.from(pool).filter((t) => !chosen.includes(t.toLowerCase()));
-    // If nothing matched, suggest from defaults by fuzzy presence of tag name itself
-    if (list.length === 0) {
-      DEFAULT_TAGS.forEach((t) => {
-        if (content.toLowerCase().includes(t.toLowerCase()) && !chosen.includes(t.toLowerCase())) list.push(t);
+  };
+  const removeTag = (t) => {
+    if (!t) return;
+    setTags((prev) => prev.filter((x) => String(x) !== String(t)));
+  };
+
+  const content = `${title || ''} ${description || ''}`.trim();
+  const smartSuggested = (() => {
+    try {
+      if (!content) return [];
+      const pool = new Set();
+      KEYWORD_MAP.forEach(({ tag, rx }) => {
+        if (rx && rx.test(content)) pool.add(tag);
       });
+      // Don't suggest already chosen or typed as exact tag
+      const chosen = (tags || []).map((t) => String(t).toLowerCase());
+      const list = Array.from(pool).filter((t) => !chosen.includes(String(t).toLowerCase()));
+      // If nothing matched, suggest from defaults by fuzzy presence of tag name itself
+      if (list.length === 0) {
+        DEFAULT_TAGS.forEach((t) => {
+          if (content.toLowerCase().includes(String(t).toLowerCase()) && !chosen.includes(String(t).toLowerCase())) {
+            list.push(t);
+          }
+        });
+      }
+      return list;
+    } catch (error) {
+      console.error('Error calculating smart suggestions:', error);
+      return [];
     }
-    return list;
   })();
 
   const handlePrioritySelect = (selectedPriority) => {
