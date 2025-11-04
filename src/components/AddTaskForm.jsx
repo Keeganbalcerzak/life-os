@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 const PRIORITY_OPTIONS = [
   { value: 'low', label: 'Low', dust: 5, color: '#3b82f6' },
@@ -8,14 +8,27 @@ const PRIORITY_OPTIONS = [
   { value: 'milestone', label: 'Milestone', dust: 50, color: '#f97316' },
 ];
 
-export default function AddTaskForm({ onAdd, projects = [], onOpenProjects }) {
+export default function AddTaskForm({ onAdd, projects = [], onOpenProjects, tagPrefs = {} }) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [isExpanded, setIsExpanded] = useState(false);
   const [priority, setPriority] = useState(null);
+  
   const [tags, setTags] = useState([]);
   const [tagInput, setTagInput] = useState('');
   const [projectId, setProjectId] = useState('');
+  const [hasAutoAddedTags, setHasAutoAddedTags] = useState(false);
+  
+  // Auto-add configured tags when form first expands
+  useEffect(() => {
+    if (isExpanded && !hasAutoAddedTags && Object.keys(tagPrefs || {}).length > 0) {
+      const configuredTags = Object.keys(tagPrefs || {}).filter(tag => tag && tag.trim());
+      if (configuredTags.length > 0) {
+        setTags(configuredTags);
+        setHasAutoAddedTags(true);
+      }
+    }
+  }, [isExpanded, tagPrefs, hasAutoAddedTags]);
 
   const DEFAULT_TAGS = ['Work', 'Personal', 'Health', 'Learning'];
 
@@ -81,6 +94,7 @@ export default function AddTaskForm({ onAdd, projects = [], onOpenProjects }) {
     setTags([]);
     setTagInput('');
     setProjectId('');
+    setHasAutoAddedTags(false);
   };
 
   const handleKeyPress = (e) => {
@@ -192,7 +206,26 @@ export default function AddTaskForm({ onAdd, projects = [], onOpenProjects }) {
                 </div>
               )}
               <div className="tag-suggestions">
-                {DEFAULT_TAGS.filter((s) => !tags.map((x) => x.toLowerCase()).includes(s.toLowerCase())).map((s) => (
+                {/* Show configured tags from tagPrefs */}
+                {Object.keys(tagPrefs || {})
+                  .filter((tag) => tag && tag.trim() && !tags.map((x) => x.toLowerCase()).includes(tag.toLowerCase()))
+                  .map((tag) => (
+                    <button
+                      key={`configured-${tag}`}
+                      type="button"
+                      className="tag-suggestion tag-suggestion-configured"
+                      onClick={() => addTag(tag)}
+                      title="Your configured tag"
+                    >
+                      {tagPrefs[tag]?.icon && <span style={{ marginRight: 4 }}>{tagPrefs[tag].icon}</span>}
+                      {tag}
+                    </button>
+                  ))}
+                {/* Show default tags if not in tagPrefs */}
+                {DEFAULT_TAGS.filter((s) => 
+                  !tags.map((x) => x.toLowerCase()).includes(s.toLowerCase()) &&
+                  !Object.keys(tagPrefs || {}).map((t) => t.toLowerCase()).includes(s.toLowerCase())
+                ).map((s) => (
                   <button
                     key={s}
                     type="button"

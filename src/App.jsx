@@ -1060,6 +1060,7 @@ function App() {
                 onAdd={handleAddTask}
                 projects={projects}
                 onOpenProjects={() => setShowProjectDashboard(true)}
+                tagPrefs={tagPrefs}
               />
             </motion.section>
 
