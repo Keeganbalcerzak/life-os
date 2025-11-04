@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import './App.css';
 import TaskList from './components/TaskList';
@@ -24,6 +24,7 @@ const PRIORITY_DUST = {
   low: 5,
   medium: 10,
   high: 20,
+  milestone: 50,
 };
 
 function App() {
@@ -51,9 +52,43 @@ function App() {
     }
   });
   const [userPreferences, setUserPreferences] = useState({});
+  const [projects, setProjects] = useLocalStorage('lifeOS_projects', []);
+  const [projectMeta, setProjectMeta] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('lifeOS_projectMeta') || '{}');
+    } catch {
+      return {};
+    }
+  });
+  const [selectedProjects, setSelectedProjects] = useState([]);
+  const [groupByProject, setGroupByProject] = useState(false);
+  const [showProjectDashboard, setShowProjectDashboard] = useState(false);
+  
   useEffect(() => {
     try { localStorage.setItem('lifeOS_tagPrefs', JSON.stringify(tagPrefs || {})); } catch {}
   }, [tagPrefs]);
+
+  useEffect(() => {
+    try { localStorage.setItem('lifeOS_projectMeta', JSON.stringify(projectMeta || {})); } catch {}
+  }, [projectMeta]);
+
+  // Initialize default project if none exist
+  useEffect(() => {
+    if (projects.length === 0 && !usingSupabase) {
+      const defaultProject = {
+        id: 'local-inbox',
+        name: 'Inbox',
+        description: 'Default workspace',
+        color: '#3b82f6',
+        user_id: null,
+        created_at: new Date().toISOString(),
+      };
+      setProjects([defaultProject]);
+      if (!projectMeta['local-inbox']) {
+        setProjectMeta((prev) => ({ ...prev, 'local-inbox': {} }));
+      }
+    }
+  }, [projects, usingSupabase, setProjects, projectMeta]);
 
   const syncReservoirLevel = useCallback(async (targetLevel) => {
     if (!usingSupabase || !isAuthenticated || !user) return;
@@ -97,6 +132,7 @@ function App() {
       const active = (tasks || []).map(task => ({
         ...task,
         createdAt: task.created_at ? new Date(task.created_at) : new Date(),
+        projectId: task.project_id || null,
       }));
       setActiveTasks(active);
 
@@ -114,8 +150,19 @@ function App() {
         ...task,
         createdAt: task.created_at ? new Date(task.created_at) : new Date(),
         completedAt: task.completed_at ? new Date(task.completed_at) : new Date(),
+        projectId: task.project_id || null,
       }));
       setCompletedTasks(completedWithDates);
+
+      // Load projects
+      const projectResult = await supabase
+        .from('projects')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (!projectResult.error && projectResult.data) {
+        setProjects(projectResult.data);
+      }
 
       // Load reservoir level and preferences
       const settingsResult = await supabase
@@ -136,7 +183,7 @@ function App() {
     } catch (error) {
       console.error('Error loading tasks from Supabase:', error);
     }
-  }, [usingSupabase, isAuthenticated, user, setActiveTasks, setCompletedTasks, setReservoirLevel]);
+  }, [usingSupabase, isAuthenticated, user, setActiveTasks, setCompletedTasks, setReservoirLevel, setProjects]);
 
   // Sync tag preferences to Supabase when authenticated
   useEffect(() => {
@@ -255,6 +302,7 @@ function App() {
             priority: autoTask.priority,
             tags: autoTask.tags || [],
             due_date: autoTask.dueDate || null,
+            project_id: autoTask.projectId || null,
           })
           .select()
           .single();
@@ -301,6 +349,141 @@ function App() {
       setSigningOut(false);
     }
   }, [usingSupabase, signOut, signingOut, setActiveTasks, setCompletedTasks, setReservoirLevel]);
+
+  // Project handlers
+  const normalizeProjectId = useCallback((id) => {
+    if (id === null || id === undefined) return '';
+    if (typeof id === 'string') return id;
+    if (typeof id === 'number') return id.toString();
+    return String(id);
+  }, []);
+
+  const handleToggleProject = useCallback((project) => {
+    const id = normalizeProjectId(project?.id ?? project);
+    if (!id) return;
+    setSelectedProjects((prev) => {
+      const normalizedPrev = prev.map(normalizeProjectId);
+      if (normalizedPrev.includes(id)) {
+        return normalizedPrev.filter((pid) => pid !== id);
+      }
+      return [...normalizedPrev, id];
+    });
+  }, [normalizeProjectId]);
+
+  const handleCreateProject = useCallback(async (input) => {
+    const base = {
+      name: (input?.name || '').trim(),
+      description: (input?.description || '').trim(),
+      color: input?.color || '#6366f1',
+    };
+    if (!base.name) throw new Error('Project name is required');
+
+    if (usingSupabase && isAuthenticated && user) {
+      try {
+        const { data, error } = await supabase
+          .from('projects')
+          .insert({ user_id: user.id, ...base })
+          .select()
+          .single();
+        if (error) throw error;
+        setProjects((prev) => [data, ...prev]);
+        return data;
+      } catch (error) {
+        console.error('Error creating project:', error);
+        throw error;
+      }
+    }
+
+    const localProject = {
+      id: `local-project-${Date.now()}`,
+      ...base,
+      created_at: new Date().toISOString(),
+      user_id: null,
+    };
+    setProjects((prev) => [localProject, ...prev]);
+    return localProject;
+  }, [usingSupabase, isAuthenticated, user, setProjects]);
+
+  const handleUpdateProject = useCallback(async (projectId, updates) => {
+    const id = normalizeProjectId(projectId);
+    if (!id) return null;
+
+    if (usingSupabase && isAuthenticated && user) {
+      try {
+        const { data, error } = await supabase
+          .from('projects')
+          .update(updates)
+          .eq('id', id)
+          .eq('user_id', user.id)
+          .select()
+          .single();
+        if (error) throw error;
+        setProjects((prev) => prev.map((p) => normalizeProjectId(p.id) === id ? data : p));
+        return data;
+      } catch (error) {
+        console.error('Error updating project:', error);
+        throw error;
+      }
+    }
+
+    setProjects((prev) => prev.map((p) => {
+      if (normalizeProjectId(p.id) === id) {
+        return { ...p, ...updates };
+      }
+      return p;
+    }));
+    return null;
+  }, [usingSupabase, isAuthenticated, user, normalizeProjectId, setProjects]);
+
+  const handleDeleteProject = useCallback(async (projectId) => {
+    const id = normalizeProjectId(projectId);
+    if (!id || id === 'local-inbox') {
+      throw new Error('Cannot delete default project');
+    }
+
+    if (usingSupabase && isAuthenticated && user) {
+      try {
+        const { error } = await supabase
+          .from('projects')
+          .delete()
+          .eq('id', id)
+          .eq('user_id', user.id);
+        if (error) throw error;
+      } catch (error) {
+        console.error('Error deleting project:', error);
+        throw error;
+      }
+    }
+
+    setProjects((prev) => prev.filter((p) => normalizeProjectId(p.id) !== id));
+    setActiveTasks((prev) => prev.map((t) => {
+      if (normalizeProjectId(t.projectId ?? t.project_id ?? '') === id) {
+        return { ...t, projectId: null, project_id: null };
+      }
+      return t;
+    }));
+  }, [usingSupabase, isAuthenticated, user, normalizeProjectId, setProjects, setActiveTasks]);
+
+  // Project stats calculation
+  const projectStats = useMemo(() => {
+    const stats = {};
+    projects.forEach((project) => {
+      const id = normalizeProjectId(project.id);
+      const projectTasks = [...activeTasks, ...completedTasks].filter(
+        (t) => normalizeProjectId(t.projectId ?? t.project_id ?? '') === id
+      );
+      const active = projectTasks.filter((t) => t.status !== 'done').length;
+      const completed = projectTasks.filter((t) => t.status === 'done').length;
+      const total = projectTasks.length;
+      stats[id] = {
+        totalCount: total,
+        activeCount: active,
+        completedCount: completed,
+        progress: total > 0 ? completed / total : 0,
+      };
+    });
+    return stats;
+  }, [projects, activeTasks, completedTasks, normalizeProjectId]);
 
   const handleStatusChange = useCallback((taskId, newStatus) => {
     const task = activeTasks.find((t) => t.id === taskId);
@@ -515,9 +698,19 @@ function App() {
     return false;
   };
 
-  const visibleTasks = selectedTags.length === 0
+  // Filter tasks by tags and projects
+  let filteredTasks = selectedTags.length === 0
     ? activeTasks
     : activeTasks.filter((t) => (t.tags || []).some((x) => isSelectedOrHasSelectedAncestor(x)));
+
+  if (selectedProjects.length > 0) {
+    filteredTasks = filteredTasks.filter((t) => {
+      const taskProjectId = normalizeProjectId(t.projectId ?? t.project_id ?? '');
+      return selectedProjects.map(normalizeProjectId).includes(taskProjectId);
+    });
+  }
+
+  const visibleTasks = filteredTasks;
 
   // Get reservoir position for animations
   const getReservoirPosition = () => {
@@ -571,6 +764,21 @@ function App() {
         tagPrefs={tagPrefs}
         onChange={setTagPrefs}
         onBack={() => setShowTagSettings(false)}
+      />
+    );
+  }
+
+  // Show project dashboard page
+  if (showProjectDashboard) {
+    return (
+      <ProjectDashboard
+        projects={projects}
+        projectStats={projectStats}
+        defaultProjectId="local-inbox"
+        onCreateProject={handleCreateProject}
+        onUpdateProject={handleUpdateProject}
+        onDeleteProject={handleDeleteProject}
+        onBack={() => setShowProjectDashboard(false)}
       />
     );
   }
@@ -797,7 +1005,11 @@ function App() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
             >
-              <AddTaskForm onAdd={handleAddTask} />
+              <AddTaskForm 
+                onAdd={handleAddTask}
+                projects={projects}
+                onOpenProjects={() => setShowProjectDashboard(true)}
+              />
             </motion.section>
 
             {/* Tasks List - Only active tasks */}
@@ -807,6 +1019,16 @@ function App() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4 }}
             >
+              <ProjectFilter
+                projects={projects}
+                selectedProjects={selectedProjects}
+                onToggleProject={handleToggleProject}
+                onClear={() => setSelectedProjects([])}
+                groupByProject={groupByProject}
+                onToggleGroup={setGroupByProject}
+                onOpenDashboard={() => setShowProjectDashboard(true)}
+                stats={projectStats}
+              />
               <TagFilter
                 tasks={activeTasks}
                 selectedTags={selectedTags}
@@ -848,6 +1070,9 @@ function App() {
                   reservoirPosition={getReservoirPosition()}
                   groupByTag={groupByTag}
                   tagPrefs={tagPrefs}
+                  groupByProject={groupByProject}
+                  projects={projects}
+                  projectStats={projectStats}
                 />
               )}
             </motion.section>
@@ -875,6 +1100,19 @@ function App() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.6 }}
+            >
+              <ProjectSummary
+                projects={projects}
+                stats={projectStats}
+                onOpenDashboard={() => setShowProjectDashboard(true)}
+              />
+            </motion.section>
+
+            <motion.section
+              className="insights-section"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.7 }}
             >
               <header className="insights-header">
                 <h2>Mission Control</h2>
