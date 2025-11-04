@@ -49,7 +49,15 @@ const statusAnimations = {
   },
 };
 
-export default function TaskItem({ task, onStatusChange, onDelete, onUpdate, crackingTask, reservoirPosition }) {
+function hexToRGBA(hex, alpha) {
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex || '#ffffff');
+  const r = parseInt(m?.[1] || 'ff', 16);
+  const g = parseInt(m?.[2] || 'ff', 16);
+  const b = parseInt(m?.[3] || 'ff', 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+export default function TaskItem({ task, onStatusChange, onDelete, onUpdate, crackingTask, reservoirPosition, tagPrefs = {} }) {
   const [isHovered, setIsHovered] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -306,6 +314,23 @@ export default function TaskItem({ task, onStatusChange, onDelete, onUpdate, cra
                   {PRIORITY_LABELS[task.priority]}
                 </span>
               </div>
+              {Array.isArray(task.tags) && task.tags.length > 0 && (
+                <div className="tag-list" style={{ marginTop: '0.5rem' }}>
+                  {task.tags.map((t) => {
+                    const pref = tagPrefs?.[t] || {};
+                    const bg = pref.color ? hexToRGBA(pref.color, 0.2) : undefined;
+                    const bd = pref.color ? hexToRGBA(pref.color, 0.6) : undefined;
+                    const parent = (tagPrefs?.[t]?.parent) || '';
+                    const label = parent ? `${parent} › ${t}` : t;
+                    return (
+                      <span key={t} className="tag-chip" data-tag={(t || '').toString().toLowerCase()} style={{ background: bg, borderColor: bd }}>
+                        {pref.icon ? <span style={{ marginRight: 6 }}>{pref.icon}</span> : null}
+                        {label}
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
               {task.description && <p>{task.description}</p>}
               {task.status !== 'done' && (
                 <div className="task-edit-hint">

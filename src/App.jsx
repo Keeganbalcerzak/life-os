@@ -7,6 +7,9 @@ import RewardReservoir from './components/RewardReservoir';
 import MagicalDust from './components/MagicalDust';
 import CompletedTasks from './components/CompletedTasks';
 import AuthScreen from './components/Auth/AuthScreen';
+import TagFilter from './components/TagFilter';
+import TagStats from './components/TagStats';
+import TagSettings from './pages/TagSettings';
 import { SparkleIcon, GalaxyIcon, CelebrationIcon } from './components/icons';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { useAuth } from './contexts/AuthContext';
@@ -33,7 +36,21 @@ function App() {
   const [showReward, setShowReward] = useState(false);
   const [crackingTask, setCrackingTask] = useState(null);
   const [showCompleted, setShowCompleted] = useState(false);
+  const [showTagSettings, setShowTagSettings] = useState(false);
   const reservoirRef = useRef(null);
+  const [selectedTags, setSelectedTags] = useState([]);
+  const [groupByTag, setGroupByTag] = useState(false);
+  const [tagPrefs, setTagPrefs] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('lifeOS_tagPrefs') || '{}');
+    } catch {
+      return {};
+    }
+  });
+  const [userPreferences, setUserPreferences] = useState({});
+  useEffect(() => {
+    try { localStorage.setItem('lifeOS_tagPrefs', JSON.stringify(tagPrefs || {})); } catch {}
+  }, [tagPrefs]);
 
   const syncReservoirLevel = useCallback(async (targetLevel) => {
     if (!usingSupabase || !isAuthenticated || !user) return;
@@ -97,21 +114,45 @@ function App() {
       }));
       setCompletedTasks(completedWithDates);
 
-      // Load reservoir level
+      // Load reservoir level and preferences
       const settingsResult = await supabase
         .from('user_settings')
-        .select('reservoir_level')
+        .select('reservoir_level, preferences')
         .eq('user_id', user.id)
         .single();
 
       const { data: settings, error: settingsError } = settingsResult;
       if (!settingsError && settings) {
         setReservoirLevel(settings.reservoir_level || 0);
+        const prefs = settings.preferences || {};
+        setUserPreferences(prefs);
+        if (prefs && typeof prefs === 'object' && prefs.tagPrefs) {
+          setTagPrefs(prefs.tagPrefs || {});
+        }
       }
     } catch (error) {
       console.error('Error loading tasks from Supabase:', error);
     }
   }, [usingSupabase, isAuthenticated, user, setActiveTasks, setCompletedTasks, setReservoirLevel]);
+
+  // Sync tag preferences to Supabase when authenticated
+  useEffect(() => {
+    const run = async () => {
+      if (!usingSupabase || !isAuthenticated || !user) return;
+      try {
+        const merged = { ...(userPreferences || {}), tagPrefs: tagPrefs || {} };
+        const { error } = await supabase
+          .from('user_settings')
+          .upsert({ user_id: user.id, preferences: merged });
+        if (error) throw error;
+        setUserPreferences(merged);
+      } catch (e) {
+        console.error('Failed to sync tag preferences:', e);
+      }
+    };
+    run();
+    // stringify to detect structural changes without deep compare libs
+  }, [JSON.stringify(tagPrefs), usingSupabase, isAuthenticated, user]);
 
   // Handle migration from localStorage to Supabase on first login (after loadTasksFromSupabase is defined)
   useEffect(() => {
@@ -176,18 +217,41 @@ function App() {
       createdAt: new Date(),
     };
 
+    const applyAutomations = (t) => {
+      try {
+        const withTags = t.tags || [];
+        let next = { ...t };
+        withTags.forEach((tag) => {
+          const pref = (tagPrefs || {})[tag];
+          const a = pref?.automation;
+          if (!a) return;
+          const [kind, val] = String(a).split(':');
+          if (kind === 'priority' && val) {
+            next.priority = val;
+          } else if (kind === 'status' && val && next.status !== 'done') {
+            next.status = val;
+          }
+        });
+        return next;
+      } catch {
+        return t;
+      }
+    };
+
+    const autoTask = applyAutomations(baseTask);
+
     if (usingSupabase && isAuthenticated && user) {
       try {
         const { data, error } = await supabase
           .from('tasks')
           .insert({
             user_id: user.id,
-            title: baseTask.title,
-            description: baseTask.description || null,
-            status: baseTask.status,
-            priority: baseTask.priority,
-            tags: baseTask.tags || [],
-            due_date: baseTask.dueDate || null,
+            title: autoTask.title,
+            description: autoTask.description || null,
+            status: autoTask.status,
+            priority: autoTask.priority,
+            tags: autoTask.tags || [],
+            due_date: autoTask.dueDate || null,
           })
           .select()
           .single();
@@ -195,9 +259,9 @@ function App() {
         if (error) throw error;
 
         const supabaseTask = {
-          ...baseTask,
+          ...autoTask,
           id: data.id,
-          createdAt: data.created_at ? new Date(data.created_at) : baseTask.createdAt,
+          createdAt: data.created_at ? new Date(data.created_at) : autoTask.createdAt,
         };
 
         setActiveTasks((prev) => [supabaseTask, ...prev]);
@@ -208,11 +272,11 @@ function App() {
     }
 
     const localTask = {
-      ...baseTask,
+      ...autoTask,
       id: Date.now() + Math.random(),
     };
     setActiveTasks((prev) => [localTask, ...prev]);
-  }, [usingSupabase, isAuthenticated, user, setActiveTasks]);
+  }, [usingSupabase, isAuthenticated, user, setActiveTasks, tagPrefs]);
 
   const triggerDust = useCallback((amount = 10) => {
     setShowDust(true);
@@ -335,32 +399,53 @@ function App() {
   }, [usingSupabase, isAuthenticated, user, setActiveTasks, setCompletedTasks]);
 
   const handleUpdateTask = useCallback(async (taskId, updates) => {
+    const current = activeTasks.find((t) => t.id === taskId) || completedTasks.find((t) => t.id === taskId);
+    const applyAutomations = (t) => {
+      try {
+        const withTags = t.tags || [];
+        let next = { ...t };
+        withTags.forEach((tag) => {
+          const pref = (tagPrefs || {})[tag];
+          const a = pref?.automation;
+          if (!a) return;
+          const [kind, val] = String(a).split(':');
+          if (kind === 'priority' && val) {
+            next.priority = val;
+          } else if (kind === 'status' && val && next.status !== 'done') {
+            next.status = val;
+          }
+        });
+        return next;
+      } catch {
+        return t;
+      }
+    };
+
+    const merged = current ? { ...current, ...updates } : updates;
+    const auto = applyAutomations(merged);
+
     setActiveTasks((prev) =>
-      prev.map((task) =>
-        task.id === taskId ? { ...task, ...updates } : task
-      )
+      prev.map((task) => (task.id === taskId ? auto : task))
     );
 
     setCompletedTasks((prev) =>
-      prev.map((task) =>
-        task.id === taskId ? { ...task, ...updates } : task
-      )
+      prev.map((task) => (task.id === taskId ? auto : task))
     );
 
     if (usingSupabase && isAuthenticated && user) {
       const payload = {};
 
-      if (updates.title !== undefined) payload.title = updates.title;
-      if (updates.description !== undefined) payload.description = updates.description || null;
-      if (updates.priority !== undefined) payload.priority = updates.priority;
-      if (updates.status !== undefined) payload.status = updates.status;
-      if (updates.dueDate !== undefined) payload.due_date = updates.dueDate || null;
-      if (updates.tags !== undefined) payload.tags = updates.tags;
-      if (updates.completedAt) {
-        payload.completed_at = updates.completedAt instanceof Date
-          ? updates.completedAt.toISOString()
-          : updates.completedAt;
-      } else if (updates.status && updates.status !== 'done') {
+      if (auto.title !== undefined) payload.title = auto.title;
+      if (auto.description !== undefined) payload.description = auto.description || null;
+      if (auto.priority !== undefined) payload.priority = auto.priority;
+      if (auto.status !== undefined) payload.status = auto.status;
+      if (auto.dueDate !== undefined) payload.due_date = auto.dueDate || null;
+      if (auto.tags !== undefined) payload.tags = auto.tags;
+      if (auto.completedAt) {
+        payload.completed_at = auto.completedAt instanceof Date
+          ? auto.completedAt.toISOString()
+          : auto.completedAt;
+      } else if (auto.status && auto.status !== 'done') {
         payload.completed_at = null;
       }
 
@@ -380,7 +465,7 @@ function App() {
         console.error('Error updating task in Supabase:', error);
       }
     }
-  }, [usingSupabase, isAuthenticated, user, setActiveTasks, setCompletedTasks]);
+  }, [usingSupabase, isAuthenticated, user, setActiveTasks, setCompletedTasks, tagPrefs, activeTasks, completedTasks]);
 
   const handleReservoirFull = useCallback(() => {
     setShowReward(true);
@@ -403,6 +488,33 @@ function App() {
     : 0;
   const focusingTasks = activeTasks.filter((t) => t.status === 'focusing');
   const energyRemaining = Math.max(0, 100 - reservoirLevel);
+
+  // Tag filtering logic
+  const normalized = (s) => (s || '').toString().trim().toLowerCase();
+  const parentMap = (() => {
+    const map = new Map();
+    Object.entries(tagPrefs || {}).forEach(([k, v]) => {
+      const parent = (v && v.parent) ? normalized(v.parent) : '';
+      if (parent) map.set(normalized(k), parent);
+    });
+    return map;
+  })();
+
+  const isSelectedOrHasSelectedAncestor = (tag) => {
+    const sel = new Set(selectedTags.map(normalized));
+    let cur = normalized(tag);
+    for (let i = 0; i < 8; i++) { // prevent cycles
+      if (sel.has(cur)) return true;
+      const next = parentMap.get(cur);
+      if (!next) return false;
+      cur = next;
+    }
+    return false;
+  };
+
+  const visibleTasks = selectedTags.length === 0
+    ? activeTasks
+    : activeTasks.filter((t) => (t.tags || []).some((x) => isSelectedOrHasSelectedAncestor(x)));
 
   // Get reservoir position for animations
   const getReservoirPosition = () => {
@@ -448,14 +560,25 @@ function App() {
     );
   }
 
+  // Show tag settings page
+  if (showTagSettings) {
+    return (
+      <TagSettings
+        tasks={activeTasks}
+        tagPrefs={tagPrefs}
+        onChange={setTagPrefs}
+        onBack={() => setShowTagSettings(false)}
+      />
+    );
+  }
+
   return (
     <div className="app">
       {/* Optimized background particles - fewer for performance */}
       <div className="background-particles">
-        {[...Array(12)].map((_, i) => {
-          const colors = ['#ffffff', '#e0e0e0', '#bfbfbf'];
-          const color = colors[i % colors.length];
-          const size = 2 + (i % 2);
+        {[...Array(14)].map((_, i) => {
+          const color = 'rgba(255,255,255,0.7)';
+          const size = 2 + ((i * 7) % 2);
           
           return (
             <motion.div
@@ -556,6 +679,12 @@ function App() {
               <span className="user-chip" title={user?.email || ''}>
                 {user?.email || 'Logged in'}
               </span>
+              <button
+                className="logout-button"
+                onClick={() => setShowTagSettings(true)}
+              >
+                Tag Settings
+              </button>
               <button
                 className="logout-button"
                 onClick={handleSignOut}
@@ -675,6 +804,20 @@ function App() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4 }}
             >
+              <TagFilter
+                tasks={activeTasks}
+                selectedTags={selectedTags}
+                onToggleTag={(tag) => {
+                  const key = normalized(tag);
+                  setSelectedTags((prev) => prev.map(normalized).includes(key)
+                    ? prev.filter((t) => normalized(t) !== key)
+                    : [...prev, tag]);
+                }}
+                onClear={() => setSelectedTags([])}
+                groupByTag={groupByTag}
+                onToggleGroup={setGroupByTag}
+                tagPrefs={tagPrefs}
+              />
               {activeTasks.length === 0 ? (
                 <motion.div
                   className="empty-state"
@@ -694,12 +837,14 @@ function App() {
                 </motion.div>
               ) : (
                 <TaskList
-                  tasks={activeTasks}
+                  tasks={visibleTasks}
                   onStatusChange={handleStatusChange}
                   onDelete={handleDeleteTask}
                   onUpdate={handleUpdateTask}
                   crackingTask={crackingTask}
                   reservoirPosition={getReservoirPosition()}
+                  groupByTag={groupByTag}
+                  tagPrefs={tagPrefs}
                 />
               )}
             </motion.section>
@@ -790,6 +935,10 @@ function App() {
                     <p>Select a task to move it into your laser zone.</p>
                   </div>
                 )}
+              </div>
+
+              <div className="insight-tagstats">
+                <TagStats activeTasks={activeTasks} completedTasks={completedTasks} />
               </div>
             </motion.section>
           </div>
