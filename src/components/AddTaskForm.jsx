@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 const PRIORITY_OPTIONS = [
   { value: 'low', label: 'Low', dust: 5, color: '#3b82f6' },
@@ -17,18 +17,29 @@ export default function AddTaskForm({ onAdd, projects = [], onOpenProjects, tagP
   const [tags, setTags] = useState([]);
   const [tagInput, setTagInput] = useState('');
   const [projectId, setProjectId] = useState('');
-  const [hasAutoAddedTags, setHasAutoAddedTags] = useState(false);
+  const hasAutoAddedTagsRef = useRef(false);
   
   // Auto-add configured tags when form first expands
   useEffect(() => {
-    if (isExpanded && !hasAutoAddedTags && Object.keys(tagPrefs || {}).length > 0) {
-      const configuredTags = Object.keys(tagPrefs || {}).filter(tag => tag && tag.trim());
-      if (configuredTags.length > 0) {
-        setTags(configuredTags);
-        setHasAutoAddedTags(true);
+    try {
+      if (isExpanded && !hasAutoAddedTagsRef.current) {
+        const prefs = tagPrefs && typeof tagPrefs === 'object' ? tagPrefs : {};
+        const configuredTags = Object.keys(prefs)
+          .filter(tag => tag && typeof tag === 'string' && tag.trim())
+          .map(tag => tag.trim());
+        if (configuredTags.length > 0) {
+          setTags(configuredTags);
+          hasAutoAddedTagsRef.current = true;
+        }
       }
+      // Reset flag when form collapses
+      if (!isExpanded && hasAutoAddedTagsRef.current) {
+        hasAutoAddedTagsRef.current = false;
+      }
+    } catch (error) {
+      console.error('Error auto-adding configured tags:', error);
     }
-  }, [isExpanded, tagPrefs, hasAutoAddedTags]);
+  }, [isExpanded, tagPrefs]);
 
   const DEFAULT_TAGS = ['Work', 'Personal', 'Health', 'Learning'];
 
@@ -94,7 +105,7 @@ export default function AddTaskForm({ onAdd, projects = [], onOpenProjects, tagP
     setTags([]);
     setTagInput('');
     setProjectId('');
-    setHasAutoAddedTags(false);
+    hasAutoAddedTagsRef.current = false;
   };
 
   const handleKeyPress = (e) => {
@@ -207,34 +218,62 @@ export default function AddTaskForm({ onAdd, projects = [], onOpenProjects, tagP
               )}
               <div className="tag-suggestions">
                 {/* Show configured tags from tagPrefs */}
-                {Object.keys(tagPrefs || {})
-                  .filter((tag) => tag && tag.trim() && !tags.map((x) => x.toLowerCase()).includes(tag.toLowerCase()))
-                  .map((tag) => (
-                    <button
-                      key={`configured-${tag}`}
-                      type="button"
-                      className="tag-suggestion tag-suggestion-configured"
-                      onClick={() => addTag(tag)}
-                      title="Your configured tag"
-                    >
-                      {tagPrefs[tag]?.icon && <span style={{ marginRight: 4 }}>{tagPrefs[tag].icon}</span>}
-                      {tag}
-                    </button>
-                  ))}
+                {(() => {
+                  try {
+                    const prefs = tagPrefs && typeof tagPrefs === 'object' ? tagPrefs : {};
+                    const chosenLower = tags.map((x) => String(x).toLowerCase());
+                    return Object.keys(prefs)
+                      .filter((tag) => {
+                        if (!tag || typeof tag !== 'string') return false;
+                        const trimmed = tag.trim();
+                        if (!trimmed) return false;
+                        return !chosenLower.includes(trimmed.toLowerCase());
+                      })
+                      .map((tag) => {
+                        const trimmed = tag.trim();
+                        const pref = prefs[tag];
+                        return (
+                          <button
+                            key={`configured-${trimmed}`}
+                            type="button"
+                            className="tag-suggestion tag-suggestion-configured"
+                            onClick={() => addTag(trimmed)}
+                            title="Your configured tag"
+                          >
+                            {pref?.icon && <span style={{ marginRight: 4 }}>{pref.icon}</span>}
+                            {trimmed}
+                          </button>
+                        );
+                      });
+                  } catch (error) {
+                    console.error('Error rendering configured tags:', error);
+                    return null;
+                  }
+                })()}
                 {/* Show default tags if not in tagPrefs */}
-                {DEFAULT_TAGS.filter((s) => 
-                  !tags.map((x) => x.toLowerCase()).includes(s.toLowerCase()) &&
-                  !Object.keys(tagPrefs || {}).map((t) => t.toLowerCase()).includes(s.toLowerCase())
-                ).map((s) => (
-                  <button
-                    key={s}
-                    type="button"
-                    className="tag-suggestion"
-                    onClick={() => addTag(s)}
-                  >
-                    {s}
-                  </button>
-                ))}
+                {(() => {
+                  try {
+                    const prefs = tagPrefs && typeof tagPrefs === 'object' ? tagPrefs : {};
+                    const chosenLower = tags.map((x) => String(x).toLowerCase());
+                    const prefKeysLower = Object.keys(prefs).map((t) => String(t).toLowerCase());
+                    return DEFAULT_TAGS.filter((s) => 
+                      !chosenLower.includes(s.toLowerCase()) &&
+                      !prefKeysLower.includes(s.toLowerCase())
+                    ).map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        className="tag-suggestion"
+                        onClick={() => addTag(s)}
+                      >
+                        {s}
+                      </button>
+                    ));
+                  } catch (error) {
+                    console.error('Error rendering default tags:', error);
+                    return null;
+                  }
+                })()}
               </div>
             </motion.div>
 
@@ -310,3 +349,4 @@ export default function AddTaskForm({ onAdd, projects = [], onOpenProjects, tagP
     </motion.div>
   );
 }
+
