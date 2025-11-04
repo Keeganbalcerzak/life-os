@@ -30,15 +30,15 @@
   - 1.1.1.8 ✅ Tag hierarchies (parent/child tags)
   - 1.1.1.9 ✅ Tag-based automation triggers
 
-- 1.1.2.1 **Task Projects/Workspaces**
-  - 1.1.2.2 Group related tasks into projects
-  - 1.1.2.3 Project progress tracking
-  - 1.1.2.4 Project-specific dust goals
-  - 1.1.2.5 Nested sub-projects
+- 1.1.2.1 ✅ **Task Projects/Workspaces**
+  - 1.1.2.2 ✅ Group related tasks into projects
+  - 1.1.2.3 ✅ Project progress tracking
+  - 1.1.2.4 ✅ Project-specific dust goals
+  - 1.1.2.5 ✅ Nested sub-projects
   - 1.1.2.6 Project templates
-  - 1.1.2.7 Project milestones and phases
+  - 1.1.2.7 ✅ Project milestones and phases
   - 1.1.2.8 Cross-project dependencies
-  - 1.1.2.9 Project health indicators
+  - 1.1.2.9 ✅ Project health indicators
 
 - 1.1.3.1 **Task Dependencies**
   - 1.1.3.2 Auto-unblock notifications
