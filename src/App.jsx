@@ -469,21 +469,68 @@ function App() {
     const stats = {};
     projects.forEach((project) => {
       const id = normalizeProjectId(project.id);
+      const meta = projectMeta[id] || {};
       const projectTasks = [...activeTasks, ...completedTasks].filter(
         (t) => normalizeProjectId(t.projectId ?? t.project_id ?? '') === id
       );
+      
       const active = projectTasks.filter((t) => t.status !== 'done').length;
       const completed = projectTasks.filter((t) => t.status === 'done').length;
       const total = projectTasks.length;
+      const focusCount = projectTasks.filter((t) => t.status === 'focusing').length;
+      const milestoneCount = projectTasks.filter((t) => t.priority === 'milestone').length;
+      
+      // Calculate dust progress from completed tasks
+      const dustProgress = completedTasks
+        .filter((t) => normalizeProjectId(t.projectId ?? t.project_id ?? '') === id)
+        .reduce((sum, task) => sum + (PRIORITY_DUST[task.priority] || 0), 0);
+      
+      const dustGoal = typeof meta.dustGoal === 'number' ? meta.dustGoal : 0;
+      const phases = Array.isArray(meta.phases) ? meta.phases : [];
+      const milestones = Array.isArray(meta.milestones) ? meta.milestones : [];
+      const dependencies = Array.isArray(meta.dependencies) ? meta.dependencies : [];
+      
+      // Find next milestone
+      const nextMilestone = milestones.find((m) => !m.completed && !m.done) || null;
+      
+      // Calculate health
+      let health = meta.healthOverrides || null;
+      if (!health) {
+        const ratio = total === 0 ? 1 : completed / total;
+        health = ratio > 0.8
+          ? { status: 'thriving', label: 'Thriving' }
+          : ratio > 0.4
+            ? { status: 'stable', label: 'Stable' }
+            : { status: 'at-risk', label: 'At Risk' };
+      }
+      
+      // Calculate progress (use milestones if no tasks, otherwise use task completion)
+      let progress = 0;
+      if (total > 0) {
+        progress = completed / total;
+      } else if (milestones.length > 0) {
+        const completedMilestones = milestones.filter((m) => m.completed || m.done).length;
+        progress = completedMilestones / milestones.length;
+      }
+      
       stats[id] = {
         totalCount: total,
         activeCount: active,
         completedCount: completed,
-        progress: total > 0 ? completed / total : 0,
+        focusCount,
+        milestoneCount,
+        progress,
+        dustGoal,
+        dustProgress,
+        phases,
+        milestones,
+        dependencies,
+        nextMilestone,
+        health,
       };
     });
     return stats;
-  }, [projects, activeTasks, completedTasks, normalizeProjectId]);
+  }, [projects, activeTasks, completedTasks, projectMeta, normalizeProjectId]);
 
   const handleStatusChange = useCallback((taskId, newStatus) => {
     const task = activeTasks.find((t) => t.id === taskId);
