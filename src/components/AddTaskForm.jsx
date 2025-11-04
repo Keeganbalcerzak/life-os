@@ -5,15 +5,17 @@ const PRIORITY_OPTIONS = [
   { value: 'low', label: 'Low', dust: 5, color: '#3b82f6' },
   { value: 'medium', label: 'Medium', dust: 10, color: '#06b6d4' },
   { value: 'high', label: 'High', dust: 20, color: '#facc15' },
+  { value: 'milestone', label: 'Milestone', dust: 50, color: '#f97316' },
 ];
 
-export default function AddTaskForm({ onAdd }) {
+export default function AddTaskForm({ onAdd, projects = [], onOpenProjects }) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [isExpanded, setIsExpanded] = useState(false);
   const [priority, setPriority] = useState(null);
   const [tags, setTags] = useState([]);
   const [tagInput, setTagInput] = useState('');
+  const [projectId, setProjectId] = useState('');
 
   const DEFAULT_TAGS = ['Work', 'Personal', 'Health', 'Learning'];
 
@@ -66,6 +68,7 @@ export default function AddTaskForm({ onAdd }) {
       description: description.trim(),
       priority: selectedPriority,
       tags,
+      projectId: projectId || null,
       status: 'not_started',
       completed: false,
     });
@@ -77,6 +80,7 @@ export default function AddTaskForm({ onAdd }) {
     setPriority(null);
     setTags([]);
     setTagInput('');
+    setProjectId('');
   };
 
   const handleKeyPress = (e) => {
@@ -200,6 +204,41 @@ export default function AddTaskForm({ onAdd }) {
                 ))}
               </div>
             </motion.div>
+
+            {projects.length > 0 && (
+              <motion.div
+                className="project-selector"
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2, delay: 0.08 }}
+              >
+                <label className="priority-label">Assign to project:</label>
+                <div className="project-selector-controls">
+                  <select
+                    className="project-select"
+                    value={projectId}
+                    onChange={(e) => setProjectId(e.target.value)}
+                  >
+                    <option value="">No Project</option>
+                    {projects.map((project) => (
+                      <option key={project.id} value={project.id}>
+                        {project.name}
+                      </option>
+                    ))}
+                  </select>
+                  {onOpenProjects && (
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={onOpenProjects}
+                    >
+                      Manage
+                    </button>
+                  )}
+                </div>
+              </motion.div>
+            )}
             
             <motion.div
               className="priority-selector"

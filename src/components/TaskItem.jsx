@@ -13,12 +13,14 @@ const PRIORITY_LABELS = {
   low: 'Low',
   medium: 'Medium',
   high: 'High',
+  milestone: 'Milestone',
 };
 
 const PRIORITY_COLORS = {
   low: '#3b82f6',
   medium: '#06b6d4',
   high: '#facc15',
+  milestone: '#f97316',
 };
 
 // Animation variants for each status change
@@ -57,7 +59,7 @@ function hexToRGBA(hex, alpha) {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-export default function TaskItem({ task, onStatusChange, onDelete, onUpdate, crackingTask, reservoirPosition, tagPrefs = {} }) {
+export default function TaskItem({ task, onStatusChange, onDelete, onUpdate, crackingTask, reservoirPosition, tagPrefs = {}, projectInfo = null }) {
   const [isHovered, setIsHovered] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -314,6 +316,16 @@ export default function TaskItem({ task, onStatusChange, onDelete, onUpdate, cra
                   {PRIORITY_LABELS[task.priority]}
                 </span>
               </div>
+              {projectInfo && (
+                <div className="task-project-row">
+                  <span
+                    className="task-project-badge"
+                    style={{ '--project-color': projectInfo.color || '#6366f1' }}
+                  >
+                    {projectInfo.name}
+                  </span>
+                </div>
+              )}
               {Array.isArray(task.tags) && task.tags.length > 0 && (
                 <div className="tag-list" style={{ marginTop: '0.5rem' }}>
                   {task.tags.map((t) => {
