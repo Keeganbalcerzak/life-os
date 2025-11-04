@@ -674,6 +674,9 @@ function App() {
       if (auto.status !== undefined) payload.status = auto.status;
       if (auto.dueDate !== undefined) payload.due_date = auto.dueDate || null;
       if (auto.tags !== undefined) payload.tags = auto.tags;
+      if (auto.projectId !== undefined || auto.project_id !== undefined) {
+        payload.project_id = auto.projectId ?? auto.project_id ?? null;
+      }
       if (auto.completedAt) {
         payload.completed_at = auto.completedAt instanceof Date
           ? auto.completedAt.toISOString()
