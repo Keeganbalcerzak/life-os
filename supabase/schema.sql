@@ -22,6 +22,9 @@ CREATE TABLE IF NOT EXISTS projects (
   name TEXT NOT NULL,
   description TEXT,
   color TEXT DEFAULT '#9333ea',
+  parent_id UUID REFERENCES projects ON DELETE SET NULL,
+  dust_goal INTEGER DEFAULT 0 CHECK (dust_goal >= 0),
+  metadata JSONB DEFAULT '{}'::jsonb,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -34,7 +37,7 @@ CREATE TABLE IF NOT EXISTS tasks (
   title TEXT NOT NULL,
   description TEXT,
   status TEXT DEFAULT 'not_started' CHECK (status IN ('not_started', 'started', 'focusing', 'done')),
-  priority TEXT DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high')),
+  priority TEXT DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high', 'milestone')),
   tags TEXT[] DEFAULT '{}',
   due_date TIMESTAMP WITH TIME ZONE,
   estimated_duration INTEGER, -- in minutes
@@ -58,6 +61,7 @@ CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
 CREATE INDEX IF NOT EXISTS idx_tasks_project_id ON tasks(project_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_due_date ON tasks(due_date);
 CREATE INDEX IF NOT EXISTS idx_projects_user_id ON projects(user_id);
+CREATE INDEX IF NOT EXISTS idx_projects_parent_id ON projects(parent_id);
 
 -- Enable Row Level Security
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;

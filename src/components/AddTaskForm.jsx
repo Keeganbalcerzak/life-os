@@ -1,17 +1,71 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 const PRIORITY_OPTIONS = [
   { value: 'low', label: 'Low', dust: 5, color: '#3b82f6' },
   { value: 'medium', label: 'Medium', dust: 10, color: '#06b6d4' },
   { value: 'high', label: 'High', dust: 20, color: '#facc15' },
+  { value: 'milestone', label: 'Milestone', dust: 50, color: '#f97316' },
 ];
 
-export default function AddTaskForm({ onAdd }) {
+export default function AddTaskForm({ onAdd, availableTags = [], projects = [], onOpenProjects }) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [isExpanded, setIsExpanded] = useState(false);
   const [priority, setPriority] = useState(null);
+  const [tags, setTags] = useState([]);
+  const [tagInput, setTagInput] = useState('');
+  const [projectId, setProjectId] = useState('');
+
+  const DEFAULT_TAGS = Array.from(new Set(['Work', 'Personal', 'Health', 'Learning', ...availableTags]));
+
+  // Simple content → tag heuristics
+  const KEYWORD_MAP = [
+    { tag: 'Work',      rx: /(work|meeting|email|project|deadline|client|sprint|stand.?up|slide|deck)/i },
+    { tag: 'Personal',  rx: /(home|errand|family|friend|party|clean|laundry|call|birthday)/i },
+    { tag: 'Health',    rx: /(health|workout|gym|run|walk|yoga|doctor|dentist|sleep|medicat|therapy|hydrate)/i },
+    { tag: 'Learning',  rx: /(learn|study|course|class|read|tutorial|lesson|practice|research)/i },
+  ];
+
+  const projectOptions = projects || [];
+  useEffect(() => {
+    if (projectOptions.length === 0) {
+      setProjectId('');
+      return;
+    }
+    setProjectId((prev) => {
+      if (prev && projectOptions.some((p) => p.id === prev)) return prev;
+      return projectOptions[0]?.id || '';
+    });
+  }, [projectOptions]);
+
+  const norm = (t) => t.trim().replace(/\s+/g, ' ');
+  const addTag = (t) => {
+    const val = norm(t);
+    if (!val) return;
+    if (tags.map((x) => x.toLowerCase()).includes(val.toLowerCase())) return;
+    setTags((prev) => [...prev, val]);
+  };
+  const removeTag = (t) => setTags((prev) => prev.filter((x) => x !== t));
+
+  const content = `${title} ${description}`.trim();
+  const smartSuggested = (() => {
+    if (!content) return [];
+    const pool = new Set();
+    KEYWORD_MAP.forEach(({ tag, rx }) => {
+      if (rx.test(content)) pool.add(tag);
+    });
+    // Don't suggest already chosen or typed as exact tag
+    const chosen = tags.map((t) => t.toLowerCase());
+    const list = Array.from(pool).filter((t) => !chosen.includes(t.toLowerCase()));
+    // If nothing matched, suggest from defaults by fuzzy presence of tag name itself
+    if (list.length === 0) {
+      DEFAULT_TAGS.forEach((t) => {
+        if (content.toLowerCase().includes(t.toLowerCase()) && !chosen.includes(t.toLowerCase())) list.push(t);
+      });
+    }
+    return list;
+  })();
 
   const handlePrioritySelect = (selectedPriority) => {
     if (!title.trim()) return;
@@ -25,6 +79,8 @@ export default function AddTaskForm({ onAdd }) {
       title: title.trim(),
       description: description.trim(),
       priority: selectedPriority,
+      tags,
+      projectId: projectId || null,
       status: 'not_started',
       completed: false,
     });
@@ -34,6 +90,8 @@ export default function AddTaskForm({ onAdd }) {
     setDescription('');
     setIsExpanded(false);
     setPriority(null);
+    setTags([]);
+    setTagInput('');
   };
 
   const handleKeyPress = (e) => {
@@ -86,7 +144,113 @@ export default function AddTaskForm({ onAdd }) {
                 }
               }}
             />
-            
+
+            {/* Tag picker */}
+            <motion.div
+              className="tag-picker"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2, delay: 0.05 }}
+            >
+              <label className="priority-label">Add tags (press Enter):</label>
+              <div className="tag-input-row">
+                <input
+                  className="tag-input"
+                  type="text"
+                  placeholder="e.g. Work, Personal, Health"
+                  value={tagInput}
+                  onChange={(e) => setTagInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ',') {
+                      e.preventDefault();
+                      if (tagInput.trim()) {
+                        addTag(tagInput);
+                        setTagInput('');
+                      }
+                    } else if (e.key === 'Backspace' && !tagInput && tags.length) {
+                      // remove last tag quickly
+                      removeTag(tags[tags.length - 1]);
+                    }
+                  }}
+                />
+              </div>
+              {smartSuggested.length > 0 && (
+                <div className="tag-suggestions" aria-label="Smart tag suggestions">
+                  {smartSuggested.map((s) => (
+                    <button
+                      key={`smart-${s}`}
+                      type="button"
+                      className="tag-suggestion"
+                      onClick={() => addTag(s)}
+                      title="Suggested from your task text"
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {tags.length > 0 && (
+                <div className="tag-list">
+                  {tags.map((t) => (
+                    <span key={t} className="tag-chip" data-tag={t.toLowerCase()}>
+                      {t}
+                      <button className="tag-chip-remove" onClick={() => removeTag(t)} aria-label={`Remove tag ${t}`}>
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <div className="tag-suggestions">
+                {DEFAULT_TAGS.filter((s) => !tags.map((x) => x.toLowerCase()).includes(s.toLowerCase())).map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    className="tag-suggestion"
+                    onClick={() => addTag(s)}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </motion.div>
+
+            <motion.div
+              className="project-selector"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2, delay: 0.1 }}
+            >
+              <div className="project-selector-row">
+                <label className="priority-label">Assign to project:</label>
+                <div className="project-selector-controls">
+                  <select
+                    className="project-select"
+                    value={projectId}
+                    onChange={(e) => setProjectId(e.target.value)}
+                  >
+                    <option value="">No Project</option>
+                    {projectOptions.map((project) => (
+                      <option key={project.id} value={project.id}>
+                        {project.name}
+                      </option>
+                    ))}
+                  </select>
+                  {onOpenProjects && (
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={onOpenProjects}
+                    >
+                      Manage
+                    </button>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+
             <motion.div
               className="priority-selector"
               initial={{ height: 0, opacity: 0 }}

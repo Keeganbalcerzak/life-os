@@ -13,14 +13,15 @@ const PRIORITY_LABELS = {
   low: 'Low',
   medium: 'Medium',
   high: 'High',
+  milestone: 'Milestone',
 };
 
 const PRIORITY_COLORS = {
   low: '#3b82f6',
   medium: '#06b6d4',
   high: '#facc15',
+  milestone: '#f97316',
 };
-
 // Animation variants for each status change
 const statusAnimations = {
   not_started: {
@@ -49,7 +50,24 @@ const statusAnimations = {
   },
 };
 
-export default function TaskItem({ task, onStatusChange, onDelete, onUpdate, crackingTask, reservoirPosition }) {
+function hexToRGBA(hex, alpha) {
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex || '#ffffff');
+  const r = parseInt(m?.[1] || 'ff', 16);
+  const g = parseInt(m?.[2] || 'ff', 16);
+  const b = parseInt(m?.[3] || 'ff', 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+export default function TaskItem({
+  task,
+  onStatusChange,
+  onDelete,
+  onUpdate,
+  crackingTask,
+  reservoirPosition,
+  tagPrefs = {},
+  projectInfo = null,
+}) {
   const [isHovered, setIsHovered] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -64,12 +82,12 @@ export default function TaskItem({ task, onStatusChange, onDelete, onUpdate, cra
   // Get container dimensions
   useEffect(() => {
     if (!taskItemRef.current) return;
-    
+
     const updateSize = () => {
       const rect = taskItemRef.current.getBoundingClientRect();
       setContainerSize({ width: rect.width, height: rect.height });
     };
-    
+
     updateSize();
     window.addEventListener('resize', updateSize);
     return () => window.removeEventListener('resize', updateSize);
@@ -79,19 +97,20 @@ export default function TaskItem({ task, onStatusChange, onDelete, onUpdate, cra
     if (!statusButtonRef.current || !taskItemRef.current) {
       return { x: 15, y: 50 }; // Default to left side where button typically is
     }
-    
+
     const buttonRect = statusButtonRef.current.getBoundingClientRect();
     const taskRect = taskItemRef.current.getBoundingClientRect();
-    
+
     // Get position relative to task item in percentages
     const x = ((buttonRect.left + buttonRect.width / 2 - taskRect.left) / taskRect.width) * 100;
     const y = ((buttonRect.top + buttonRect.height / 2 - taskRect.top) / taskRect.height) * 100;
-    
+
     return { x, y };
   };
 
   const statusColor = STATUS_COLORS[task.status] || STATUS_COLORS.not_started;
   const priorityColor = PRIORITY_COLORS[task.priority] || PRIORITY_COLORS.medium;
+  const projectBadgeColor = projectInfo?.color || '#6366f1';
 
   // Focus title input when editing starts
   useEffect(() => {
@@ -306,6 +325,33 @@ export default function TaskItem({ task, onStatusChange, onDelete, onUpdate, cra
                   {PRIORITY_LABELS[task.priority]}
                 </span>
               </div>
+              {projectInfo && (
+                <div className="task-project-row">
+                  <span
+                    className="task-project-badge"
+                    style={{ '--project-color': projectBadgeColor }}
+                  >
+                    {projectInfo.name}
+                  </span>
+                </div>
+              )}
+              {Array.isArray(task.tags) && task.tags.length > 0 && (
+                <div className="tag-list" style={{ marginTop: '0.5rem' }}>
+                  {task.tags.map((t) => {
+                    const pref = tagPrefs?.[t] || {};
+                    const bg = pref.color ? hexToRGBA(pref.color, 0.2) : undefined;
+                    const bd = pref.color ? hexToRGBA(pref.color, 0.6) : undefined;
+                    const parent = (tagPrefs?.[t]?.parent) || '';
+                    const label = parent ? `${parent} › ${t}` : t;
+                    return (
+                      <span key={t} className="tag-chip" data-tag={(t || '').toString().toLowerCase()} style={{ background: bg, borderColor: bd }}>
+                        {pref.icon ? <span style={{ marginRight: 6 }}>{pref.icon}</span> : null}
+                        {label}
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
               {task.description && <p>{task.description}</p>}
               {task.status !== 'done' && (
                 <div className="task-edit-hint">
