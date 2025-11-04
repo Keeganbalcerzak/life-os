@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { motion as Motion } from 'framer-motion';
 
 export default function TagFilter({ tasks, selectedTags, onToggleTag, onClear, groupByTag, onToggleGroup, tagPrefs = {} }) {
   const tagSet = new Map();
@@ -42,7 +42,7 @@ export default function TagFilter({ tasks, selectedTags, onToggleTag, onClear, g
               style.boxShadow = `0 0 14px ${pref.color}44`;
             }
             return (
-              <motion.button
+              <Motion.button
                 key={key}
                 type="button"
                 className={`tag-chip filter-chip ${active ? 'active' : ''}`}
@@ -55,7 +55,7 @@ export default function TagFilter({ tasks, selectedTags, onToggleTag, onClear, g
               >
                 {pref.icon ? <span style={{ marginRight: 6 }}>{pref.icon}</span> : null}
                 {label}
-              </motion.button>
+              </Motion.button>
             );
           })
         )}

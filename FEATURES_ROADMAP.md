@@ -35,28 +35,39 @@
   - 1.1.2.3 ✅ Project progress tracking
   - 1.1.2.4 ✅ Project-specific dust goals
   - 1.1.2.5 ✅ Nested sub-projects
-  - 1.1.2.6 Project templates
+  - 1.1.2.6 ✅ Project templates
   - 1.1.2.7 ✅ Project milestones and phases
-  - 1.1.2.8 Cross-project dependencies
+  - 1.1.2.8 ✅ Cross-project dependencies
   - 1.1.2.9 ✅ Project health indicators
 
-- 1.1.3.1 **Task Dependencies**
-  - 1.1.3.2 Auto-unblock notifications
-  - 1.1.3.3 Smart task ordering suggestions
-  - 1.1.3.4 Parallel task identification
-  - 1.1.3.5 Critical path analysis
-  - 1.1.3.6 Dependency chains visualization
+- 1.1.3.1 ✅ **Task Dependencies**
+  - 1.1.3.2 ✅ Auto-unblock notifications
+  - 1.1.3.3 ✅ Smart task ordering suggestions
+  - 1.1.3.4 ✅ Parallel task identification
+  - 1.1.3.5 ✅ Critical path analysis
+  - 1.1.3.6 ✅ Dependency chains visualization
+
+  Usage notes:
+  - Add dependencies when creating a task or while editing a task. Blocked tasks show a “Blocked” badge and list unmet prerequisites.
+  - When a dependency completes, dependents auto‑unlock and show a toast notification.
+  - Mission Control now includes a Dependencies panel with Suggested Next tasks, Parallel tasks, Critical Path, and a compact dependency graph.
 
 ### 1.2 Task Scheduling & Time Management
-- 1.2.1.1 **Due Dates & Deadlines** ⭐
-  - 1.2.1.2 Date picker with calendar integration
-  - 1.2.1.3 Time-based deadlines
-  - 1.2.1.4 Overdue task indicators (visual warnings)
-  - 1.2.1.5 "Due Today/This Week" filters
-  - 1.2.1.6 Deadline approaching notifications
-  - 1.2.1.7 Flexible deadlines (soft/hard)
-  - 1.2.1.8 Deadline negotiation suggestions
-  - 1.2.1.9 Smart rescheduling recommendations
+- 1.2.1.1 ✅ **Due Dates & Deadlines** ⭐
+  - 1.2.1.2 ✅ Date picker with calendar integration
+  - 1.2.1.3 ✅ Time-based deadlines
+  - 1.2.1.4 ✅ Overdue task indicators (visual warnings)
+  - 1.2.1.5 ✅ "Due Today/This Week" filters
+  - 1.2.1.6 ✅ Deadline approaching notifications
+  - 1.2.1.7 ✅ Flexible deadlines (soft/hard)
+  - 1.2.1.8 ✅ Deadline negotiation suggestions
+  - 1.2.1.9 ✅ Smart rescheduling recommendations
+
+  Usage notes:
+  - Set due date/time and choose Soft/Hard in the task form or task edit view. Tasks show status badges (overdue, today, soon).
+  - Filter by Overdue, Today, This Week, or No Due via the due filter above the task list.
+  - Auto toasts fire for upcoming (within 1 hour) and overdue deadlines. Soft deadlines notify but are treated as guidance.
+  - Quick reschedule buttons provide +1h, Tonight 5pm, Tomorrow 9am, and Next Monday 9am suggestions.
 
 - 1.2.2.1 **Task Duration Estimation**
   - 1.2.2.2 Estimated time to complete

@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { motion as Motion } from 'framer-motion';
 
 export default function MagicalDust({ count = 10, color = '#fbbf24' }) {
   const particles = Array.from({ length: count }, (_, i) => ({
@@ -13,7 +13,7 @@ export default function MagicalDust({ count = 10, color = '#fbbf24' }) {
   return (
     <div className="magical-dust-container" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden' }}>
       {particles.map((particle) => (
-        <motion.div
+        <Motion.div
           key={particle.id}
           className="dust-particle"
           initial={{ 

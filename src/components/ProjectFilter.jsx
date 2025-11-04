@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { motion as Motion } from 'framer-motion';
 
 const getProjectColor = (project) => project?.color || '#6366f1';
 
@@ -67,7 +67,7 @@ export default function ProjectFilter({
             const health = stat.health || {};
             const color = getProjectColor(project);
             return (
-              <motion.button
+              <Motion.button
                 key={id}
                 type="button"
                 className={`project-chip ${isActive ? 'active' : ''}`}
@@ -114,7 +114,7 @@ export default function ProjectFilter({
                     ) : null}
                   </span>
                 </span>
-              </motion.button>
+              </Motion.button>
             );
           })
         )}

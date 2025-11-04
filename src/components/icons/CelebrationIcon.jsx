@@ -1,8 +1,8 @@
-import { motion } from 'framer-motion';
+import { motion as Motion } from 'framer-motion';
 
 export default function CelebrationIcon({ size = 48, className = '' }) {
   return (
-    <motion.svg
+    <Motion.svg
       width={size}
       height={size}
       viewBox="0 0 100 100"
@@ -31,7 +31,7 @@ export default function CelebrationIcon({ size = 48, className = '' }) {
       <line x1="80" y1="25" x2="70" y2="30" stroke="url(#celebration-gold)" strokeWidth="2" strokeLinecap="round"/>
       {/* Base */}
       <rect x="25" y="70" width="50" height="8" fill="url(#celebration-gold)" rx="2"/>
-    </motion.svg>
+    </Motion.svg>
   );
 }
 

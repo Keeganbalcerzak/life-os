@@ -1,8 +1,8 @@
-import { motion } from 'framer-motion';
+import { motion as Motion } from 'framer-motion';
 
 export default function CheckmarkIcon({ size = 20, className = '' }) {
   return (
-    <motion.svg
+    <Motion.svg
       width={size}
       height={size}
       viewBox="0 0 24 24"
@@ -22,7 +22,7 @@ export default function CheckmarkIcon({ size = 20, className = '' }) {
         stroke="#047857"
         strokeWidth="0.5"
       />
-    </motion.svg>
+    </Motion.svg>
   );
 }
 

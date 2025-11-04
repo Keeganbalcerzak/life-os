@@ -1,4 +1,4 @@
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 import TaskItem from './TaskItem';
 
 const normalizeProjectId = (id) => {
@@ -20,6 +20,10 @@ export default function TaskList({
   groupByProject = false,
   projects = [],
   projectStats = {},
+  allTasks = [],
+  taskDeps = {},
+  doneIdSet = new Set(),
+  onChangeDependencies,
 }) {
   // Only show active tasks - no "done" status
   const notStartedTasks = tasks.filter((t) => t.status === 'not_started');
@@ -91,6 +95,10 @@ export default function TaskList({
                 reservoirPosition={reservoirPosition}
                 tagPrefs={tagPrefs}
                 projectInfo={descriptor}
+                allTasks={allTasks}
+                dependencyIds={taskDeps?.[task.id] || []}
+                doneIdSet={doneIdSet}
+                onChangeDependencies={onChangeDependencies}
               />
             );
           })}

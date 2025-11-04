@@ -1,5 +1,5 @@
-import { motion, AnimatePresence } from 'framer-motion';
-import { useState, useEffect, useRef } from 'react';
+import { motion as Motion, AnimatePresence } from 'framer-motion';
+import { useState } from 'react';
 
 const PRIORITY_OPTIONS = [
   { value: 'low', label: 'Low', dust: 5, color: '#3b82f6' },
@@ -8,7 +8,7 @@ const PRIORITY_OPTIONS = [
   { value: 'milestone', label: 'Milestone', dust: 50, color: '#f97316' },
 ];
 
-export default function AddTaskForm({ onAdd, projects = [], onOpenProjects, tagPrefs = {} }) {
+export default function AddTaskForm({ onAdd, projects = [], onOpenProjects, tagPrefs = {}, existingTasks = [] }) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [isExpanded, setIsExpanded] = useState(false);
@@ -17,29 +17,11 @@ export default function AddTaskForm({ onAdd, projects = [], onOpenProjects, tagP
   const [tags, setTags] = useState([]);
   const [tagInput, setTagInput] = useState('');
   const [projectId, setProjectId] = useState('');
-  const hasAutoAddedTagsRef = useRef(false);
-  
-  // Auto-add configured tags when form first expands
-  useEffect(() => {
-    try {
-      if (isExpanded && !hasAutoAddedTagsRef.current) {
-        const prefs = tagPrefs && typeof tagPrefs === 'object' ? tagPrefs : {};
-        const configuredTags = Object.keys(prefs)
-          .filter(tag => tag && typeof tag === 'string' && tag.trim())
-          .map(tag => tag.trim());
-        if (configuredTags.length > 0) {
-          setTags(configuredTags);
-          hasAutoAddedTagsRef.current = true;
-        }
-      }
-      // Reset flag when form collapses
-      if (!isExpanded && hasAutoAddedTagsRef.current) {
-        hasAutoAddedTagsRef.current = false;
-      }
-    } catch (error) {
-      console.error('Error auto-adding configured tags:', error);
-    }
-  }, [isExpanded, tagPrefs]);
+  const [depSearch, setDepSearch] = useState('');
+  const [depIds, setDepIds] = useState([]);
+  const [dueDateEnabled, setDueDateEnabled] = useState(false);
+  const [dueDateLocal, setDueDateLocal] = useState(''); // yyyy-MM-ddTHH:mm
+  const [deadlineType, setDeadlineType] = useState('hard');
 
   const DEFAULT_TAGS = ['Work', 'Personal', 'Health', 'Learning'];
 
@@ -110,6 +92,9 @@ export default function AddTaskForm({ onAdd, projects = [], onOpenProjects, tagP
       priority: selectedPriority,
       tags,
       projectId: projectId || null,
+      dependencies: depIds,
+      dueDate: (dueDateEnabled && dueDateLocal) ? new Date(dueDateLocal) : null,
+      deadlineType,
       status: 'not_started',
       completed: false,
     });
@@ -122,7 +107,11 @@ export default function AddTaskForm({ onAdd, projects = [], onOpenProjects, tagP
     setTags([]);
     setTagInput('');
     setProjectId('');
-    hasAutoAddedTagsRef.current = false;
+    setDepIds([]);
+    setDepSearch('');
+    setDueDateEnabled(false);
+    setDueDateLocal('');
+    setDeadlineType('hard');
   };
 
   const handleKeyPress = (e) => {
@@ -137,14 +126,14 @@ export default function AddTaskForm({ onAdd, projects = [], onOpenProjects, tagP
   };
 
   return (
-    <motion.div
+    <Motion.div
       className={`add-task-form ${isExpanded ? 'add-task-form-expanded' : ''}`}
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
       layout
     >
       <div className="form-input-wrapper">
-        <motion.input
+        <Motion.input
           type="text"
           placeholder="What needs your magic today?"
           value={title}
@@ -159,7 +148,7 @@ export default function AddTaskForm({ onAdd, projects = [], onOpenProjects, tagP
       <AnimatePresence>
         {isExpanded && (
           <>
-            <motion.textarea
+            <Motion.textarea
               placeholder="Add details (optional)"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -177,7 +166,7 @@ export default function AddTaskForm({ onAdd, projects = [], onOpenProjects, tagP
             />
 
             {/* Tag picker */}
-            <motion.div
+            <Motion.div
               className="tag-picker"
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
@@ -292,10 +281,10 @@ export default function AddTaskForm({ onAdd, projects = [], onOpenProjects, tagP
                   }
                 })()}
               </div>
-            </motion.div>
+            </Motion.div>
 
             {projects.length > 0 && (
-              <motion.div
+              <Motion.div
                 className="project-selector"
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: 'auto', opacity: 1 }}
@@ -326,10 +315,94 @@ export default function AddTaskForm({ onAdd, projects = [], onOpenProjects, tagP
                     </button>
                   )}
                 </div>
-              </motion.div>
+              </Motion.div>
             )}
+
+            {/* Dependencies selector */}
+            {existingTasks.length > 0 && (
+              <Motion.div
+                className="deps-selector"
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2, delay: 0.09 }}
+              >
+                <label className="priority-label">Depends on:</label>
+                <input
+                  type="text"
+                  className="deps-search"
+                  placeholder="Search tasks…"
+                  value={depSearch}
+                  onChange={(e) => setDepSearch(e.target.value)}
+                />
+                <div className="deps-list">
+                  {existingTasks
+                    .filter((t) => (t.title || '').toLowerCase().includes(depSearch.trim().toLowerCase()))
+                    .map((t) => {
+                      const checked = depIds.includes(t.id);
+                      return (
+                        <label key={t.id} className="deps-item">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(e) => {
+                              setDepIds((prev) => {
+                                const set = new Set(prev);
+                                if (e.target.checked) set.add(t.id);
+                                else set.delete(t.id);
+                                return Array.from(set);
+                              });
+                            }}
+                          />
+                          <span className="deps-item-title">{t.title}</span>
+                        </label>
+                      );
+                    })}
+                  {existingTasks.filter((t) => (t.title || '').toLowerCase().includes(depSearch.trim().toLowerCase())).length === 0 && (
+                    <div className="deps-empty">No matching tasks</div>
+                  )}
+                </div>
+              </Motion.div>
+            )}
+
+            {/* Due date/time and deadline type */}
+            <Motion.div
+              className="due-editor"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2, delay: 0.1 }}
+            >
+              <label className="priority-label">Deadline</label>
+              <div className="due-row">
+                <label className="due-toggle">
+                  <input
+                    type="checkbox"
+                    checked={dueDateEnabled}
+                    onChange={(e) => setDueDateEnabled(e.target.checked)}
+                  />
+                  <span>Set due date/time</span>
+                </label>
+                {dueDateEnabled && (
+                  <input
+                    type="datetime-local"
+                    className="due-input"
+                    value={dueDateLocal}
+                    onChange={(e) => setDueDateLocal(e.target.value)}
+                  />
+                )}
+                <select
+                  className="deadline-type"
+                  value={deadlineType}
+                  onChange={(e) => setDeadlineType(e.target.value)}
+                >
+                  <option value="hard">Hard</option>
+                  <option value="soft">Soft</option>
+                </select>
+              </div>
+            </Motion.div>
             
-            <motion.div
+            <Motion.div
               className="priority-selector"
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
@@ -339,7 +412,7 @@ export default function AddTaskForm({ onAdd, projects = [], onOpenProjects, tagP
               <label className="priority-label">Choose priority to create task:</label>
               <div className="priority-buttons">
                 {PRIORITY_OPTIONS.map((option) => (
-                  <motion.button
+                  <Motion.button
                     key={option.value}
                     type="button"
                     className={`priority-button ${priority === option.value ? 'active' : ''}`}
@@ -356,14 +429,13 @@ export default function AddTaskForm({ onAdd, projects = [], onOpenProjects, tagP
                   >
                     <span className="priority-name">{option.label}</span>
                     <span className="priority-dust">{option.dust} dust</span>
-                  </motion.button>
+                  </Motion.button>
                 ))}
               </div>
-            </motion.div>
+            </Motion.div>
           </>
         )}
       </AnimatePresence>
-    </motion.div>
+    </Motion.div>
   );
 }
-

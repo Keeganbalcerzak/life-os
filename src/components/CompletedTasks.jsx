@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { motion as Motion } from 'framer-motion';
 import { useState } from 'react';
 
 export default function CompletedTasks({ completedTasks, onBack, onDelete }) {
@@ -39,7 +39,7 @@ export default function CompletedTasks({ completedTasks, onBack, onDelete }) {
 
   return (
     <div className="completed-tasks-page">
-      <motion.div
+      <Motion.div
         className="completed-header"
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -51,21 +51,21 @@ export default function CompletedTasks({ completedTasks, onBack, onDelete }) {
         <p className="completed-subtitle">
           {completedTasks.length} task{completedTasks.length !== 1 ? 's' : ''} completed
         </p>
-      </motion.div>
+      </Motion.div>
 
       {completedTasks.length === 0 ? (
-        <motion.div
+        <Motion.div
           className="empty-completed"
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
         >
           <h2>No completed tasks yet</h2>
           <p>Complete your first task to see it here</p>
-        </motion.div>
+        </Motion.div>
       ) : (
         <div className="completed-list">
           {sortedDates.map((dateKey) => (
-            <motion.div
+            <Motion.div
               key={dateKey}
               className="date-group"
               initial={{ opacity: 0, y: 20 }}
@@ -81,7 +81,7 @@ export default function CompletedTasks({ completedTasks, onBack, onDelete }) {
               </button>
 
               {(expandedDate === dateKey || sortedDates.length === 1) && (
-                <motion.div
+                <Motion.div
                   className="date-tasks"
                   initial={{ height: 0, opacity: 0 }}
                   animate={{ height: 'auto', opacity: 1 }}
@@ -94,7 +94,7 @@ export default function CompletedTasks({ completedTasks, onBack, onDelete }) {
                       return dateB - dateA;
                     })
                     .map((task) => (
-                      <motion.div
+                      <Motion.div
                         key={task.id}
                         className="completed-task-item"
                         initial={{ opacity: 0, x: -20 }}
@@ -120,7 +120,7 @@ export default function CompletedTasks({ completedTasks, onBack, onDelete }) {
                           </div>
                         </div>
                         {onDelete && (
-                          <motion.button
+                          <Motion.button
                             className="completed-task-delete"
                             onClick={() => onDelete(task.id)}
                             whileHover={{ scale: 1.1 }}
@@ -128,13 +128,13 @@ export default function CompletedTasks({ completedTasks, onBack, onDelete }) {
                             title="Delete this task permanently"
                           >
                             ×
-                          </motion.button>
+                          </Motion.button>
                         )}
-                      </motion.div>
+                      </Motion.div>
                     ))}
-                </motion.div>
+                </Motion.div>
               )}
-            </motion.div>
+            </Motion.div>
           ))}
         </div>
       )}

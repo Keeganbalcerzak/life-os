@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion as Motion, AnimatePresence } from 'framer-motion';
 
 const normalizeProjectId = (id) => {
   if (id === null || id === undefined) return '';
@@ -42,6 +42,11 @@ export default function ProjectDashboard({
   onCreateProject,
   onUpdateProject,
   onDeleteProject,
+  projectTemplates = [],
+  onSaveTemplate,
+  onCreateFromTemplate,
+  projectMeta = {},
+  onSetDependencies,
   onBack,
 }) {
   const [createForm, setCreateForm] = useState(defaultCreateState);
@@ -197,7 +202,7 @@ export default function ProjectDashboard({
 
   return (
     <div className="project-dashboard">
-      <motion.header
+      <Motion.header
         className="project-dashboard-header"
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -211,11 +216,11 @@ export default function ProjectDashboard({
             Back to Tasks
           </button>
         </div>
-      </motion.header>
+      </Motion.header>
 
       <AnimatePresence>
         {message && (
-          <motion.div
+          <Motion.div
             key={message.id}
             className={`project-message project-message-${message.type}`}
             initial={{ opacity: 0, y: -10 }}
@@ -223,16 +228,37 @@ export default function ProjectDashboard({
             exit={{ opacity: 0, y: -10 }}
           >
             {message.text}
-          </motion.div>
+          </Motion.div>
         )}
       </AnimatePresence>
 
-      <motion.section
+      <Motion.section
         className="project-create-card"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
       >
         <h2>Create a new project</h2>
+        {Array.isArray(projectTemplates) && projectTemplates.length > 0 && (
+          <div className="project-templates-row">
+            <label>
+              Create from template
+              <select
+                onChange={async (e) => {
+                  const val = e.target.value;
+                  if (!val) return;
+                  await onCreateFromTemplate?.(val);
+                  e.target.value = '';
+                }}
+                defaultValue=""
+              >
+                <option value="">Select a template…</option>
+                {projectTemplates.map((tpl) => (
+                  <option key={tpl.id} value={tpl.id}>{tpl.name}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+        )}
         <form className="project-create-form" onSubmit={handleCreate}>
           <label>
             Project name
@@ -271,7 +297,7 @@ export default function ProjectDashboard({
             </div>
           </div>
           <div className="project-create-actions">
-            <motion.button
+            <Motion.button
               className="secondary-button"
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.98 }}
@@ -279,10 +305,10 @@ export default function ProjectDashboard({
               disabled={createBusy}
             >
               {createBusy ? 'Creating…' : 'Create Project'}
-            </motion.button>
+            </Motion.button>
           </div>
         </form>
-      </motion.section>
+      </Motion.section>
 
       <section className="project-list">
         {sortedProjects.map((project) => {
@@ -293,6 +319,7 @@ export default function ProjectDashboard({
             color: project.color || COLOR_OPTIONS[0],
           };
           const stats = projectStats[id] || {};
+          const deps = (projectMeta?.[id]?.dependencies || []).map(String);
           const progressPct = Math.round((stats.progress || 0) * 100);
           const dustGoal = stats.dustGoal || 0;
           const dustProgress = stats.dustProgress || 0;
@@ -301,7 +328,7 @@ export default function ProjectDashboard({
           const isDeleting = pendingId === id && pendingAction === 'delete';
 
           return (
-            <motion.article
+            <Motion.article
               key={id}
               className={`project-manage-card ${isProtected ? 'project-manage-card-protected' : ''}`}
               initial={{ opacity: 0, y: 20 }}
@@ -362,8 +389,34 @@ export default function ProjectDashboard({
                 </div>
               </div>
 
+              <div className="project-manage-deps">
+                <span>Depends on</span>
+                <div className="deps-grid">
+                  {sortedProjects
+                    .filter((p) => normalizeProjectId(p.id) !== id)
+                    .map((p) => {
+                      const pid = normalizeProjectId(p.id);
+                      const checked = deps.includes(pid);
+                      return (
+                        <label key={`dep-${id}-${pid}`} className="dep-item">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(e) => {
+                              const next = new Set(deps);
+                              if (e.target.checked) next.add(pid); else next.delete(pid);
+                              onSetDependencies?.(id, Array.from(next));
+                            }}
+                          />
+                          <span>{p.name}</span>
+                        </label>
+                      );
+                    })}
+                </div>
+              </div>
+
               <div className="project-manage-actions">
-                <motion.button
+                <Motion.button
                   type="button"
                   className="secondary-button"
                   whileHover={{ scale: 1.03 }}
@@ -372,8 +425,8 @@ export default function ProjectDashboard({
                   onClick={() => handleSave(project)}
                 >
                   {isSaving ? 'Saving…' : 'Save'}
-                </motion.button>
-                <motion.button
+                </Motion.button>
+                <Motion.button
                   type="button"
                   className="ghost-button"
                   whileHover={{ scale: isProtected ? 1 : 1.03 }}
@@ -382,13 +435,21 @@ export default function ProjectDashboard({
                   onClick={() => handleDelete(project)}
                 >
                   {isProtected ? 'Protected' : isDeleting ? 'Deleting…' : 'Delete'}
-                </motion.button>
+                </Motion.button>
+                <Motion.button
+                  type="button"
+                  className="ghost-button"
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => onSaveTemplate?.(id)}
+                >
+                  Save as Template
+                </Motion.button>
               </div>
-            </motion.article>
+            </Motion.article>
           );
         })}
       </section>
     </div>
   );
 }
-

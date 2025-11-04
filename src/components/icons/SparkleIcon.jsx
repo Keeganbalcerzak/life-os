@@ -1,8 +1,8 @@
-import { motion } from 'framer-motion';
+import { motion as Motion } from 'framer-motion';
 
 export default function SparkleIcon({ size = 24, className = '' }) {
   return (
-    <motion.svg
+    <Motion.svg
       width={size}
       height={size}
       viewBox="0 0 24 24"
@@ -37,7 +37,7 @@ export default function SparkleIcon({ size = 24, className = '' }) {
       <circle cx="16" cy="10" r="1" fill="#fef3c7" opacity="0.6"/>
       <circle cx="8" cy="10" r="1" fill="#fef3c7" opacity="0.6"/>
       <circle cx="12" cy="15" r="1.5" fill="#fef3c7" opacity="0.8"/>
-    </motion.svg>
+    </Motion.svg>
   );
 }
 

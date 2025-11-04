@@ -40,6 +40,7 @@ CREATE TABLE IF NOT EXISTS tasks (
   priority TEXT DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high', 'milestone')),
   tags TEXT[] DEFAULT '{}',
   due_date TIMESTAMP WITH TIME ZONE,
+  deadline_type TEXT DEFAULT 'hard' CHECK (deadline_type IN ('soft','hard')),
   estimated_duration INTEGER, -- in minutes
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -178,4 +179,3 @@ CREATE TRIGGER update_user_settings_updated_at
   BEFORE UPDATE ON user_settings
   FOR EACH ROW
   EXECUTE FUNCTION public.handle_updated_at();
-

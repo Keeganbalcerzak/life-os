@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 /**
  * Custom hook for localStorage persistence
@@ -46,8 +46,8 @@ export function useLocalStorage(key, initialValue) {
       // If corrupted, clear it and return initial value
       try {
         window.localStorage.removeItem(key);
-      } catch (e) {
-        // Ignore cleanup errors
+      } catch (removeError) {
+        console.error(`Error clearing corrupted localStorage key ${key}:`, removeError);
       }
       return initialValue;
     }
@@ -55,30 +55,29 @@ export function useLocalStorage(key, initialValue) {
 
   // Return a wrapped version of useState's setter function that
   // persists the new value to localStorage.
-  const setValue = (value) => {
-    try {
-      // Allow value to be a function so we have same API as useState
-      const valueToStore = value instanceof Function ? value(storedValue) : value;
-      
-      // Convert Date objects to ISO strings before storing
-      const serialized = JSON.stringify(valueToStore, (key, val) => {
-        if (val instanceof Date) {
-          return val.toISOString();
+  const setValue = (valueOrUpdater) => {
+    setStoredValue((previousValue) => {
+      const nextValue = typeof valueOrUpdater === 'function'
+        ? valueOrUpdater(previousValue)
+        : valueOrUpdater;
+
+      try {
+        const serialized = JSON.stringify(nextValue, (k, val) => {
+          if (val instanceof Date) {
+            return val.toISOString();
+          }
+          return val;
+        });
+        if (typeof window !== 'undefined') {
+          window.localStorage.setItem(key, serialized);
         }
-        return val;
-      });
-      
-      setStoredValue(valueToStore);
-      if (typeof window !== 'undefined') {
-        window.localStorage.setItem(key, serialized);
+      } catch (error) {
+        console.error(`Error saving ${key} to localStorage:`, error);
       }
-    } catch (error) {
-      console.error(`Error saving ${key} to localStorage:`, error);
-      // If storage is full or unavailable, just update state
-      setStoredValue(valueToStore);
-    }
+
+      return nextValue;
+    });
   };
 
   return [storedValue, setValue];
 }
-

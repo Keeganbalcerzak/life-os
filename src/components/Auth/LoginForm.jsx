@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion as Motion } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext';
 
 export default function LoginForm({ onToggleMode, initialEmail = '' }) {
@@ -25,7 +25,7 @@ export default function LoginForm({ onToggleMode, initialEmail = '' }) {
   };
 
   return (
-    <motion.form
+    <Motion.form
       className="auth-form"
       onSubmit={handleSubmit}
       initial={{ opacity: 0, y: 20 }}
@@ -35,13 +35,13 @@ export default function LoginForm({ onToggleMode, initialEmail = '' }) {
       <p className="auth-subtitle">Sign in to continue your journey</p>
 
       {error && (
-        <motion.div
+        <Motion.div
           className="auth-error"
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
         >
           {error}
-        </motion.div>
+        </Motion.div>
       )}
 
       <div className="auth-input-group">
@@ -70,7 +70,7 @@ export default function LoginForm({ onToggleMode, initialEmail = '' }) {
         />
       </div>
 
-      <motion.button
+      <Motion.button
         type="submit"
         className="auth-submit"
         disabled={loading}
@@ -78,7 +78,7 @@ export default function LoginForm({ onToggleMode, initialEmail = '' }) {
         whileTap={{ scale: 0.98 }}
       >
         {loading ? 'Signing in...' : 'Sign In'}
-      </motion.button>
+      </Motion.button>
 
       <div className="auth-footer">
         <button
@@ -97,7 +97,7 @@ export default function LoginForm({ onToggleMode, initialEmail = '' }) {
           Create account
         </button>
       </div>
-    </motion.form>
+    </Motion.form>
   );
 }
 

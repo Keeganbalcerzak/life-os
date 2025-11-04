@@ -1,8 +1,8 @@
-import { motion } from 'framer-motion';
+import { motion as Motion } from 'framer-motion';
 
 export default function GalaxyIcon({ size = 64, className = '' }) {
   return (
-    <motion.svg
+    <Motion.svg
       width={size}
       height={size}
       viewBox="0 0 100 100"
@@ -37,7 +37,7 @@ export default function GalaxyIcon({ size = 64, className = '' }) {
       <circle cx="55" cy="30" r="2" fill="var(--color-warning)" opacity="0.8"/>
       {/* Center glow */}
       <circle cx="50" cy="50" r="8" fill="var(--color-warning)" opacity="0.6" filter="url(#galaxy-glow)"/>
-    </motion.svg>
+    </Motion.svg>
   );
 }
 

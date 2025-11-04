@@ -1,4 +1,4 @@
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { useCallback, useState } from 'react';
 import TagPreferences from '../components/TagPreferences';
 
@@ -14,12 +14,12 @@ export default function TagSettings({ tasks, tagPrefs, onChange, onBack }) {
   return (
     <div className="app">
       <div className="app-content">
-        <motion.div
+        <Motion.div
           className="settings-page"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          <motion.button 
+          <Motion.button 
             className="back-button" 
             type="button" 
             onClick={() => onBack?.()}
@@ -27,20 +27,20 @@ export default function TagSettings({ tasks, tagPrefs, onChange, onBack }) {
             whileTap={{ scale: 0.98 }}
           >
             ← Back
-          </motion.button>
+          </Motion.button>
           <h1 className="settings-title">Tag Settings</h1>
           <p className="settings-subtitle">Customize colors and icons for your tags</p>
 
           <div className="settings-card">
             <TagPreferences tasks={tasks} value={tagPrefs} onChange={handleSave} alwaysOpen />
           </div>
-        </motion.div>
+        </Motion.div>
 
         {/* Toast */}
         <div className="toast-container">
           <AnimatePresence>
             {toast && (
-              <motion.div
+              <Motion.div
                 key="toast"
                 className="toast-item"
                 initial={{ y: 16, opacity: 0 }}
@@ -48,7 +48,7 @@ export default function TagSettings({ tasks, tagPrefs, onChange, onBack }) {
                 exit={{ y: 16, opacity: 0 }}
               >
                 {toast}
-              </motion.div>
+              </Motion.div>
             )}
           </AnimatePresence>
         </div>

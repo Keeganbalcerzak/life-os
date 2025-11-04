@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion as Motion } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext';
 
 export default function SignUpForm({ onToggleMode }) {
@@ -39,7 +39,7 @@ export default function SignUpForm({ onToggleMode }) {
 
   if (success) {
     return (
-      <motion.div
+      <Motion.div
         className="auth-success"
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -55,12 +55,12 @@ export default function SignUpForm({ onToggleMode }) {
         >
           Back to Sign In
         </button>
-      </motion.div>
+      </Motion.div>
     );
   }
 
   return (
-    <motion.form
+    <Motion.form
       className="auth-form"
       onSubmit={handleSubmit}
       initial={{ opacity: 0, y: 20 }}
@@ -70,13 +70,13 @@ export default function SignUpForm({ onToggleMode }) {
       <p className="auth-subtitle">Create your Life OS account</p>
 
       {error && (
-        <motion.div
+        <Motion.div
           className="auth-error"
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
         >
           {error}
-        </motion.div>
+        </Motion.div>
       )}
 
       <div className="auth-input-group">
@@ -120,7 +120,7 @@ export default function SignUpForm({ onToggleMode }) {
         />
       </div>
 
-      <motion.button
+      <Motion.button
         type="submit"
         className="auth-submit"
         disabled={loading}
@@ -128,7 +128,7 @@ export default function SignUpForm({ onToggleMode }) {
         whileTap={{ scale: 0.98 }}
       >
         {loading ? 'Creating account...' : 'Create Account'}
-      </motion.button>
+      </Motion.button>
 
       <div className="auth-footer">
         <button
@@ -139,7 +139,7 @@ export default function SignUpForm({ onToggleMode }) {
           Already have an account? Sign in
         </button>
       </div>
-    </motion.form>
+    </Motion.form>
   );
 }
 

@@ -35,7 +35,8 @@ export async function migrateLocalStorageToSupabase(supabaseClient) {
             priority: task.priority || 'medium',
             created_at: task.createdAt ? new Date(task.createdAt).toISOString() : new Date().toISOString(),
             tags: task.tags || [],
-            due_date: task.dueDate || null,
+            due_date: task.dueDate ? new Date(task.dueDate).toISOString() : null,
+            deadline_type: task.deadlineType || 'hard',
           });
 
         if (error) throw error;
@@ -61,7 +62,8 @@ export async function migrateLocalStorageToSupabase(supabaseClient) {
             created_at: task.createdAt ? new Date(task.createdAt).toISOString() : new Date().toISOString(),
             completed_at: task.completedAt ? new Date(task.completedAt).toISOString() : new Date().toISOString(),
             tags: task.tags || [],
-            due_date: task.dueDate || null,
+            due_date: task.dueDate ? new Date(task.dueDate).toISOString() : null,
+            deadline_type: task.deadlineType || 'hard',
           });
 
         if (error) throw error;
@@ -99,4 +101,3 @@ export async function migrateLocalStorageToSupabase(supabaseClient) {
     throw error;
   }
 }
-

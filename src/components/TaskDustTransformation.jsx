@@ -1,7 +1,7 @@
-import { motion } from 'framer-motion';
+import { motion as Motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
 
-export default function TaskDustTransformation({ isActive, onComplete, reservoirPosition, containerSize, originPosition }) {
+export default function TaskDustTransformation({ isActive, onComplete, reservoirPosition, originPosition }) {
   const [phase, setPhase] = useState('idle');
   const [particles, setParticles] = useState([]);
 
@@ -12,7 +12,6 @@ export default function TaskDustTransformation({ isActive, onComplete, reservoir
 
   const dx = reservoirX - originX;
   const dy = reservoirY - originY;
-  const distance = Math.sqrt(dx * dx + dy * dy);
   const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
 
   // Minimal, fast completion animation
@@ -42,7 +41,6 @@ export default function TaskDustTransformation({ isActive, onComplete, reservoir
       const newParticles = [];
       for (let i = 0; i < 8; i++) {
         const particleAngle = (Math.random() - 0.3) * 120 + angle; // Tighter spread toward reservoir
-        const particleAngleRad = particleAngle * Math.PI / 180;
         const speed = 25 + Math.random() * 20;
 
         newParticles.push({
@@ -76,7 +74,7 @@ export default function TaskDustTransformation({ isActive, onComplete, reservoir
       {phase === 'burst' && (
         <>
           {/* Simple central flash */}
-          <motion.div
+          <Motion.div
             style={{
               position: 'absolute',
               left: `${originX}%`,
@@ -102,7 +100,7 @@ export default function TaskDustTransformation({ isActive, onComplete, reservoir
             const endY = Math.sin(angleRad) * particle.speed;
 
             return (
-              <motion.div
+              <Motion.div
                 key={particle.id}
                 style={{
                   position: 'absolute',
@@ -138,7 +136,7 @@ export default function TaskDustTransformation({ isActive, onComplete, reservoir
         <>
           {/* Simple flowing particles */}
           {[...Array(4)].map((_, i) => (
-            <motion.div
+            <Motion.div
               key={`flow-${i}`}
               style={{
                 position: 'absolute',

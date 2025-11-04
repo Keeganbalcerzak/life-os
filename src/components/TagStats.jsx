@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { motion as Motion } from 'framer-motion';
 
 export default function TagStats({ activeTasks = [], completedTasks = [] }) {
   const addCounts = (map, tag, field) => {
@@ -42,7 +42,7 @@ export default function TagStats({ activeTasks = [], completedTasks = [] }) {
             <span className="tag-chip" data-tag={r.tag.toLowerCase()}>{r.tag}</span>
             <span className="tag-stat-count">{r.total}</span>
             <div className="tag-stat-meter">
-              <motion.div
+              <Motion.div
                 className="tag-stat-meter-fill"
                 initial={{ scaleX: 0 }}
                 animate={{ scaleX: r.rate / 100 }}

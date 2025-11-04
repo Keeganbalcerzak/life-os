@@ -1,4 +1,4 @@
-import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
+import { motion as Motion, useMotionValue, useTransform, animate } from 'framer-motion';
 import { useEffect } from 'react';
 
 export default function RewardReservoir({ level, maxLevel = 100, onFull }) {
@@ -29,12 +29,7 @@ export default function RewardReservoir({ level, maxLevel = 100, onFull }) {
 
   return (
     <div className="reservoir-container">
-      <motion.div
-        className="reservoir-panel"
-        initial={{ opacity: 0, y: 16, scale: 0.94 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.6, ease: 'easeOut' }}
-      >
+      <div className="reservoir-panel">
         <header className="reservoir-header">
           <span className="eyebrow">Energy Vault</span>
           <h3>Stardust Reservoir</h3>
@@ -42,34 +37,20 @@ export default function RewardReservoir({ level, maxLevel = 100, onFull }) {
         </header>
 
         <div className="reservoir-orb-wrapper">
+          {/* Orbiting accents for a more dynamic, cosmic feel */}
+          <div className="reservoir-orbits" aria-hidden>
+            <div className="orbit orbit-1"><span className="orb-dot" /></div>
+            <div className="orbit orbit-2"><span className="orb-dot" /></div>
+            <div className="orbit orbit-3"><span className="orb-dot" /></div>
+          </div>
           <div className="reservoir-orb-shell">
-            <motion.div
+            <Motion.div
               className="reservoir-liquid"
               style={{ scaleY: progress }}
             />
-            <motion.div
-              className="reservoir-liquid-haze"
-              animate={{ opacity: [0.45, 0.65, 0.4] }}
-              transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
-            />
-            <motion.div
-              className="reservoir-liquid-light"
-              animate={{ opacity: [0.2, 0.45, 0.25], scale: [1, 1.04, 0.98] }}
-              transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
-            />
-            <motion.div
-              className="reservoir-surface"
-              style={{ bottom: surfaceLevel }}
-              animate={{ opacity: [0.9, 0.7, 0.9] }}
-              transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
-            />
-            <div className="reservoir-glass-overlay" />
+            <div className="reservoir-liquid-haze" />
+            <Motion.div className="reservoir-surface" style={{ bottom: surfaceLevel }} />
           </div>
-          <motion.div
-            className="reservoir-orb-glow"
-            animate={{ opacity: [0.25, 0.4, 0.28] }}
-            transition={{ duration: 7, repeat: Infinity, ease: 'easeInOut' }}
-          />
         </div>
 
         <div className="reservoir-readout">
@@ -88,16 +69,11 @@ export default function RewardReservoir({ level, maxLevel = 100, onFull }) {
         </div>
 
         {level >= maxLevel && (
-          <motion.div
-            className="reservoir-ready-banner"
-            initial={{ y: 12, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ type: 'spring', stiffness: 220, damping: 18 }}
-          >
+          <div className="reservoir-ready-banner">
             Vault charged! Claim your cosmic reward ✨
-          </motion.div>
+          </div>
         )}
-      </motion.div>
+      </div>
     </div>
   );
 }

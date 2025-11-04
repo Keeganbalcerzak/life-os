@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion as Motion, AnimatePresence } from 'framer-motion';
 import './App.css';
 import TaskList from './components/TaskList';
 import AddTaskForm from './components/AddTaskForm';
@@ -13,6 +13,8 @@ import ProjectFilter from './components/ProjectFilter';
 import ProjectSummary from './components/ProjectSummary';
 import ProjectDashboard from './pages/ProjectDashboard';
 import TagSettings from './pages/TagSettings';
+import DependencyPanel from './components/DependencyPanel';
+import DueFilter from './components/DueFilter';
 import { SparkleIcon, GalaxyIcon, CelebrationIcon } from './components/icons';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { useAuth } from './contexts/AuthContext';
@@ -44,6 +46,7 @@ function App() {
   const reservoirRef = useRef(null);
   const [selectedTags, setSelectedTags] = useState([]);
   const [groupByTag, setGroupByTag] = useState(false);
+  const userPreferencesRef = useRef({});
   const [tagPrefs, setTagPrefs] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem('lifeOS_tagPrefs') || '{}');
@@ -51,7 +54,6 @@ function App() {
       return {};
     }
   });
-  const [userPreferences, setUserPreferences] = useState({});
   const [projects, setProjects] = useLocalStorage('lifeOS_projects', []);
   const [projectMeta, setProjectMeta] = useState(() => {
     try {
@@ -63,14 +65,96 @@ function App() {
   const [selectedProjects, setSelectedProjects] = useState([]);
   const [groupByProject, setGroupByProject] = useState(false);
   const [showProjectDashboard, setShowProjectDashboard] = useState(false);
+  const [projectTemplates, setProjectTemplates] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('lifeOS_projectTemplates') || '[]');
+    } catch {
+      return [];
+    }
+  });
+  // Task dependencies mapping: { [taskId]: string[] }
+  const [taskDeps, setTaskDeps] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('lifeOS_taskDeps') || '{}');
+    } catch {
+      return {};
+    }
+  });
+  // Simple toast notifications
+  const [toasts, setToasts] = useState([]);
+  // Due filters and notifications
+  const [dueFilter, setDueFilter] = useState(() => {
+    try {
+      return localStorage.getItem('lifeOS_dueFilter') || 'all';
+    } catch {
+      return 'all';
+    }
+  });
+  const [dueNotified, setDueNotified] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('lifeOS_dueNotified') || '[]');
+    } catch {
+      return [];
+    }
+  });
+  // Sort by due date toggle
+  const [sortByDue, setSortByDue] = useState(() => {
+    try {
+      return localStorage.getItem('lifeOS_sortByDue') === '1';
+    } catch {
+      return false;
+    }
+  });
   
   useEffect(() => {
-    try { localStorage.setItem('lifeOS_tagPrefs', JSON.stringify(tagPrefs || {})); } catch {}
+    try {
+      localStorage.setItem('lifeOS_tagPrefs', JSON.stringify(tagPrefs || {}));
+    } catch (error) {
+      console.error('Failed to persist tag preferences:', error);
+    }
   }, [tagPrefs]);
 
   useEffect(() => {
-    try { localStorage.setItem('lifeOS_projectMeta', JSON.stringify(projectMeta || {})); } catch {}
+    try {
+      localStorage.setItem('lifeOS_projectMeta', JSON.stringify(projectMeta || {}));
+    } catch (error) {
+      console.error('Failed to persist project metadata:', error);
+    }
   }, [projectMeta]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('lifeOS_projectTemplates', JSON.stringify(projectTemplates || []));
+    } catch (error) {
+      console.error('Failed to persist project templates:', error);
+    }
+  }, [projectTemplates]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('lifeOS_taskDeps', JSON.stringify(taskDeps || {}));
+    } catch (error) {
+      console.error('Failed to persist task dependencies:', error);
+    }
+  }, [taskDeps]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('lifeOS_dueFilter', dueFilter || 'all');
+    } catch {}
+  }, [dueFilter]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('lifeOS_dueNotified', JSON.stringify(dueNotified || []));
+    } catch {}
+  }, [dueNotified]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('lifeOS_sortByDue', sortByDue ? '1' : '0');
+    } catch {}
+  }, [sortByDue]);
 
   // Initialize default project if none exist
   useEffect(() => {
@@ -133,6 +217,8 @@ function App() {
         ...task,
         createdAt: task.created_at ? new Date(task.created_at) : new Date(),
         projectId: task.project_id || null,
+        dueDate: task.due_date ? new Date(task.due_date) : null,
+        deadlineType: task.deadline_type || 'hard',
       }));
       setActiveTasks(active);
 
@@ -151,6 +237,8 @@ function App() {
         createdAt: task.created_at ? new Date(task.created_at) : new Date(),
         completedAt: task.completed_at ? new Date(task.completed_at) : new Date(),
         projectId: task.project_id || null,
+        dueDate: task.due_date ? new Date(task.due_date) : null,
+        deadlineType: task.deadline_type || 'hard',
       }));
       setCompletedTasks(completedWithDates);
 
@@ -175,9 +263,12 @@ function App() {
       if (!settingsError && settings) {
         setReservoirLevel(settings.reservoir_level || 0);
         const prefs = settings.preferences || {};
-        setUserPreferences(prefs);
+        userPreferencesRef.current = prefs;
         if (prefs && typeof prefs === 'object' && prefs.tagPrefs) {
           setTagPrefs(prefs.tagPrefs || {});
+        }
+        if (prefs && typeof prefs === 'object' && prefs.taskDeps) {
+          setTaskDeps(prefs.taskDeps || {});
         }
       }
     } catch (error) {
@@ -187,22 +278,27 @@ function App() {
 
   // Sync tag preferences to Supabase when authenticated
   useEffect(() => {
-    const run = async () => {
-      if (!usingSupabase || !isAuthenticated || !user) return;
+    if (!usingSupabase || !isAuthenticated || !user) return;
+
+    const syncPreferences = async () => {
       try {
-        const merged = { ...(userPreferences || {}), tagPrefs: tagPrefs || {} };
+        const merged = {
+          ...(userPreferencesRef.current || {}),
+          tagPrefs: tagPrefs || {},
+          taskDeps: taskDeps || {},
+        };
         const { error } = await supabase
           .from('user_settings')
           .upsert({ user_id: user.id, preferences: merged });
         if (error) throw error;
-        setUserPreferences(merged);
-      } catch (e) {
-        console.error('Failed to sync tag preferences:', e);
+        userPreferencesRef.current = merged;
+      } catch (error) {
+        console.error('Failed to sync tag preferences:', error);
       }
     };
-    run();
-    // stringify to detect structural changes without deep compare libs
-  }, [JSON.stringify(tagPrefs), usingSupabase, isAuthenticated, user]);
+
+    syncPreferences();
+  }, [tagPrefs, taskDeps, usingSupabase, isAuthenticated, user]);
 
   // Handle migration from localStorage to Supabase on first login (after loadTasksFromSupabase is defined)
   useEffect(() => {
@@ -302,6 +398,7 @@ function App() {
             priority: autoTask.priority,
             tags: autoTask.tags || [],
             due_date: autoTask.dueDate || null,
+            deadline_type: autoTask.deadlineType || 'hard',
             project_id: autoTask.projectId || null,
           })
           .select()
@@ -313,9 +410,15 @@ function App() {
           ...autoTask,
           id: data.id,
           createdAt: data.created_at ? new Date(data.created_at) : autoTask.createdAt,
+          dueDate: data.due_date ? new Date(data.due_date) : autoTask.dueDate || null,
+          deadlineType: data.deadline_type || autoTask.deadlineType || 'hard',
         };
 
         setActiveTasks((prev) => [supabaseTask, ...prev]);
+        // Save dependencies mapping if provided
+        if (Array.isArray(task.dependencies)) {
+          setTaskDeps((prev) => ({ ...prev, [data.id]: task.dependencies }));
+        }
         return;
       } catch (error) {
         console.error('Error creating task in Supabase:', error);
@@ -327,6 +430,9 @@ function App() {
       id: Date.now() + Math.random(),
     };
     setActiveTasks((prev) => [localTask, ...prev]);
+    if (Array.isArray(task.dependencies)) {
+      setTaskDeps((prev) => ({ ...prev, [localTask.id]: task.dependencies }));
+    }
   }, [usingSupabase, isAuthenticated, user, setActiveTasks, tagPrefs]);
 
   const triggerDust = useCallback((amount = 10) => {
@@ -558,6 +664,27 @@ function App() {
         updateReservoirLevel((level) => Math.min(100, level + dustAmount));
         triggerDust(dustAmount);
         setCrackingTask(null);
+        // Auto-unblock notifications for tasks that depended on this one
+        try {
+          const dependents = Object.entries(taskDeps || {})
+            .filter(([, deps]) => Array.isArray(deps) && deps.includes(taskId))
+            .map(([tid]) => tid);
+          if (dependents.length > 0) {
+            // Build done set including this newly completed id
+            const doneSet = new Set([taskId, ...completedTasks.map((t) => t.id)]);
+            dependents.forEach((depId) => {
+              const depList = (taskDeps[depId] || []).filter(Boolean);
+              const allDone = depList.every((d) => doneSet.has(d));
+              if (allDone) {
+                const unblockedTask = activeTasks.find((t) => String(t.id) === String(depId));
+                const title = unblockedTask?.title || 'A task';
+                pushToast(`${title} is now unblocked`);
+              }
+            });
+          }
+        } catch (e) {
+          // noop
+        }
       }, 1100);
 
       if (usingSupabase && isAuthenticated && user) {
@@ -615,6 +742,15 @@ function App() {
   const handleDeleteTask = useCallback(async (taskId) => {
     setActiveTasks((prev) => prev.filter((task) => task.id !== taskId));
     setCompletedTasks((prev) => prev.filter((task) => task.id !== taskId));
+    // Remove task from dependencies map (as key and from all lists)
+    setTaskDeps((prev) => {
+      const next = { ...prev };
+      delete next[taskId];
+      Object.keys(next).forEach((k) => {
+        next[k] = (next[k] || []).filter((d) => d !== taskId);
+      });
+      return next;
+    });
 
     if (usingSupabase && isAuthenticated && user) {
       try {
@@ -672,7 +808,10 @@ function App() {
       if (auto.description !== undefined) payload.description = auto.description || null;
       if (auto.priority !== undefined) payload.priority = auto.priority;
       if (auto.status !== undefined) payload.status = auto.status;
-      if (auto.dueDate !== undefined) payload.due_date = auto.dueDate || null;
+      if (auto.dueDate !== undefined) {
+        payload.due_date = auto.dueDate ? (auto.dueDate instanceof Date ? auto.dueDate.toISOString() : auto.dueDate) : null;
+      }
+      if (auto.deadlineType !== undefined) payload.deadline_type = auto.deadlineType || 'hard';
       if (auto.tags !== undefined) payload.tags = auto.tags;
       if (auto.projectId !== undefined || auto.project_id !== undefined) {
         payload.project_id = auto.projectId ?? auto.project_id ?? null;
@@ -702,6 +841,57 @@ function App() {
       }
     }
   }, [usingSupabase, isAuthenticated, user, setActiveTasks, setCompletedTasks, tagPrefs, activeTasks, completedTasks]);
+
+  // Dependency helpers
+  const setDependenciesForTask = useCallback((taskId, depIds) => {
+    setTaskDeps((prev) => ({
+      ...prev,
+      [taskId]: Array.from(new Set((depIds || []).filter((id) => String(id) !== String(taskId))))
+    }));
+  }, []);
+
+  const pushToast = useCallback((message) => {
+    const id = Date.now() + Math.random();
+    setToasts((prev) => [...prev, { id, message }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 4000);
+  }, []);
+
+  // Deadline approaching notifications (every minute)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      try {
+        const now = new Date();
+        const soonMs = 60 * 60 * 1000; // 1 hour
+        const endOfDay = new Date(now);
+        endOfDay.setHours(23, 59, 59, 999);
+        const seen = new Set(dueNotified || []);
+
+        (activeTasks || []).forEach((t) => {
+          if (!t.dueDate) return;
+          const due = t.dueDate instanceof Date ? t.dueDate : new Date(t.dueDate);
+          const idKey = String(t.id);
+          const msLeft = due.getTime() - now.getTime();
+          const isOverdue = msLeft < 0;
+          const isToday = due.toDateString() === now.toDateString();
+          const isSoon = msLeft > 0 && msLeft <= soonMs;
+          if ((isSoon || (isToday && msLeft > 0 && msLeft <= (endOfDay.getTime() - now.getTime()))) && !seen.has(idKey)) {
+            pushToast(`Upcoming: ${t.title} due ${due.toLocaleString()}`);
+            seen.add(idKey);
+          }
+          if (isOverdue && !seen.has(idKey)) {
+            pushToast(`Overdue: ${t.title}`);
+            seen.add(idKey);
+          }
+        });
+
+        const next = Array.from(seen);
+        if (next.length !== (dueNotified || []).length) setDueNotified(next);
+      } catch {}
+    }, 60 * 1000);
+    return () => clearInterval(interval);
+  }, [activeTasks, pushToast, dueNotified]);
 
   const handleReservoirFull = useCallback(() => {
     setShowReward(true);
@@ -760,7 +950,48 @@ function App() {
     });
   }
 
+  // Due filter application
+  const inThisWeek = (date) => {
+    const d = date instanceof Date ? date : new Date(date);
+    const now = new Date();
+    const day = now.getDay();
+    const diffToMonday = (day + 6) % 7; // 0 for Monday
+    const monday = new Date(now);
+    monday.setHours(0,0,0,0);
+    monday.setDate(now.getDate() - diffToMonday);
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    sunday.setHours(23,59,59,999);
+    return d >= monday && d <= sunday;
+  };
+  const isOverdue = (t) => t.dueDate && (new Date(t.dueDate).getTime() < Date.now());
+  if (dueFilter !== 'all') {
+    filteredTasks = filteredTasks.filter((t) => {
+      const due = t.dueDate ? (t.dueDate instanceof Date ? t.dueDate : new Date(t.dueDate)) : null;
+      if (dueFilter === 'overdue') return due && due.getTime() < Date.now();
+      if (dueFilter === 'today') return due && due.toDateString() === new Date().toDateString();
+      if (dueFilter === 'week') return due && inThisWeek(due);
+      if (dueFilter === 'none') return !due;
+      return true;
+    });
+  }
+
   const visibleTasks = filteredTasks;
+
+  // Optional sort by due date (ascending, no due dates last)
+  const visibleTasksSorted = sortByDue
+    ? [...visibleTasks].sort((a, b) => {
+        const ad = a.dueDate ? (a.dueDate instanceof Date ? a.dueDate.getTime() : new Date(a.dueDate).getTime()) : Infinity;
+        const bd = b.dueDate ? (b.dueDate instanceof Date ? b.dueDate.getTime() : new Date(b.dueDate).getTime()) : Infinity;
+        if (ad !== bd) return ad - bd;
+        const ac = a.createdAt ? (a.createdAt instanceof Date ? a.createdAt.getTime() : new Date(a.createdAt).getTime()) : 0;
+        const bc = b.createdAt ? (b.createdAt instanceof Date ? b.createdAt.getTime() : new Date(b.createdAt).getTime()) : 0;
+        return ac - bc;
+      })
+    : visibleTasks;
+
+  // Build doneId set
+  const doneIdSet = useMemo(() => new Set(completedTasks.map((t) => t.id)), [completedTasks]);
 
   // Get reservoir position for animations
   const getReservoirPosition = () => {
@@ -784,12 +1015,12 @@ function App() {
   if (authLoading) {
     return (
       <div className="app" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
-        <motion.div
+        <Motion.div
           animate={{ rotate: 360 }}
           transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
         >
           <GalaxyIcon size={60} />
-        </motion.div>
+        </Motion.div>
       </div>
     );
   }
@@ -829,6 +1060,11 @@ function App() {
         onCreateProject={handleCreateProject}
         onUpdateProject={handleUpdateProject}
         onDeleteProject={handleDeleteProject}
+        projectTemplates={projectTemplates}
+        onSaveTemplate={(pid) => handleSaveProjectTemplate(pid)}
+        onCreateFromTemplate={(tplId) => handleCreateProjectFromTemplate(tplId)}
+        projectMeta={projectMeta}
+        onSetDependencies={(pid, deps) => handleSetProjectDependencies(pid, deps)}
         onBack={() => setShowProjectDashboard(false)}
       />
     );
@@ -836,34 +1072,25 @@ function App() {
 
   return (
     <div className="app">
-      {/* Optimized background particles - fewer for performance */}
+      {/* Background particles toned down */}
       <div className="background-particles">
-        {[...Array(14)].map((_, i) => {
-          const color = 'rgba(255,255,255,0.7)';
-          const size = 2 + ((i * 7) % 2);
-          
+        {[...Array(10)].map((_, i) => {
+          const color = 'rgba(255,255,255,0.5)';
+          const size = 2 + ((i * 5) % 2);
           return (
-            <motion.div
+            <Motion.div
               key={i}
               className="bg-particle"
-              animate={{
-                y: [0, -100],
-                opacity: [0.2, 0.5, 0.2],
-              }}
-              transition={{
-                duration: 20 + i * 2,
-                repeat: Infinity,
-                delay: i * 2,
-                ease: "linear",
-              }}
+              animate={{ y: [0, -40], opacity: [0.15, 0.35, 0.15] }}
+              transition={{ duration: 28 + i * 3, repeat: Infinity, delay: i * 2.5, ease: 'linear' }}
               style={{
                 position: 'fixed',
                 width: `${size}px`,
                 height: `${size}px`,
                 borderRadius: '50%',
                 background: color,
-                left: `${(i * 12.5) % 100}%`,
-                top: `${15 + (i * 7)}%`,
+                left: `${(i * 10.5) % 100}%`,
+                top: `${20 + (i * 6)}%`,
                 boxShadow: 'none',
                 pointerEvents: 'none',
                 zIndex: 0,
@@ -876,7 +1103,7 @@ function App() {
       {/* Magical dust overlay */}
       <AnimatePresence>
         {showDust && (
-          <motion.div
+          <Motion.div
             className="dust-overlay"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -884,20 +1111,20 @@ function App() {
             transition={{ duration: 0.3 }}
           >
             <MagicalDust count={10} color="#fbbf24" />
-          </motion.div>
+          </Motion.div>
         )}
       </AnimatePresence>
 
       {/* Reward celebration */}
       <AnimatePresence>
         {showReward && (
-          <motion.div
+          <Motion.div
             className="reward-celebration"
             initial={{ opacity: 0, scale: 0 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0 }}
           >
-            <motion.h1
+            <Motion.h1
               animate={{
                 scale: [1, 1.1, 1],
                 rotate: [0, 2, -2, 0],
@@ -911,15 +1138,15 @@ function App() {
               <CelebrationIcon size={48} style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: '1rem' }} />
               Reward Unlocked!
               <CelebrationIcon size={48} style={{ display: 'inline-block', verticalAlign: 'middle', marginLeft: '1rem' }} />
-            </motion.h1>
-            <motion.p
+            </Motion.h1>
+            <Motion.p
               initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.2 }}
             >
               You've filled your magical energy reservoir!
-            </motion.p>
-            <motion.button
+            </Motion.p>
+            <Motion.button
               onClick={() => {
                 setShowReward(false);
                 updateReservoirLevel(0);
@@ -929,8 +1156,8 @@ function App() {
             >
               <SparkleIcon size={20} style={{ display: 'inline-block', verticalAlign: 'middle', marginLeft: '0.5rem' }} />
               Claim Reward
-            </motion.button>
-          </motion.div>
+            </Motion.button>
+          </Motion.div>
         )}
       </AnimatePresence>
 
@@ -959,13 +1186,13 @@ function App() {
         )}
 
         {/* Clean Header */}
-        <motion.header
+        <Motion.header
           className="app-header"
           initial={{ y: -50, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.6 }}
         >
-          <motion.h1
+          <Motion.h1
             className="app-title"
             animate={{
               textShadow: [
@@ -981,12 +1208,12 @@ function App() {
             }}
           >
             Life OS
-          </motion.h1>
+          </Motion.h1>
           <p className="app-subtitle">Where planning meets magic</p>
-        </motion.header>
+        </Motion.header>
 
         {/* Clean Stats */}
-        <motion.section
+        <Motion.section
           className="stats-section"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -996,61 +1223,50 @@ function App() {
             <span className="eyebrow">Mission Pulse</span>
             <p className="stats-subtitle">A snapshot of your orbit right now</p>
           </header>
-          <div className="stats-grid">
-            <motion.div className="stat-card" key={`tasks-${totalActiveTasks}`}>
-              <motion.div
-                className="stat-value-large"
-                key={totalActiveTasks}
-                initial={{ scale: totalActiveTasks > 0 ? 1.2 : 1 }}
-                animate={{ scale: 1 }}
-                transition={{ duration: 0.3, ease: "easeOut" }}
-              >
-                {totalActiveTasks}
-              </motion.div>
+          <div className="stats-plaque">
+            <div className="stats-plaque-border" aria-hidden />
+            <div className="stats-plaque-sparks" aria-hidden>
+              <span className="spark s1" />
+              <span className="spark s2" />
+            </div>
+            <div className="stats-grid">
+              <div className="stat-card" key={`tasks-${totalActiveTasks}`}>
+                <div className="stat-value-large">
+                  {totalActiveTasks}
+                </div>
               <div className="stat-label-large">Active Tasks</div>
-            </motion.div>
-            <motion.div className="stat-card" key={`rate-${completionRate}`}>
-              <motion.div
-                className="stat-value-large"
-                key={completionRate}
-                initial={{ scale: completionRate > 0 ? 1.2 : 1 }}
-                animate={{ scale: 1 }}
-                transition={{ duration: 0.3, ease: "easeOut" }}
-              >
+            </div>
+            <div className="stat-card" key={`rate-${completionRate}`}>
+              <div className="stat-value-large">
                 {completionRate}%
-              </motion.div>
+              </div>
               <div className="stat-label-large">Complete</div>
-            </motion.div>
-            <motion.div className="stat-card highlight" key={`energy-${reservoirLevel}`}>
-              <motion.div
-                className="stat-value-large"
-                key={reservoirLevel}
-                initial={{ scale: reservoirLevel > 0 ? 1.2 : 1 }}
-                animate={{ scale: 1 }}
-                transition={{ duration: 0.3, ease: "easeOut" }}
-              >
+            </div>
+            <div className="stat-card energy-card" key={`energy-${reservoirLevel}`}>
+              <div className="stat-value-large">
                 {reservoirLevel}
-              </motion.div>
-              <div className="stat-label-large">Energy</div>
-            </motion.div>
+                </div>
+                <div className="stat-label-large">Energy</div>
+              </div>
+            </div>
           </div>
           {completedTasks.length > 0 && (
-            <motion.button
+            <Motion.button
               className="view-completed-button"
               onClick={() => setShowCompleted(true)}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
               View {completedTasks.length} Completed Task{completedTasks.length !== 1 ? 's' : ''}
-            </motion.button>
+            </Motion.button>
           )}
-        </motion.section>
+        </Motion.section>
 
         {/* Dual Column Layout */}
         <div className="main-layout">
           <div className="column column-primary">
             {/* Add Task Form */}
-            <motion.section
+            <Motion.section
               className="task-form-section"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -1061,11 +1277,12 @@ function App() {
                 projects={projects}
                 onOpenProjects={() => setShowProjectDashboard(true)}
                 tagPrefs={tagPrefs}
+                existingTasks={activeTasks}
               />
-            </motion.section>
+            </Motion.section>
 
             {/* Tasks List - Only active tasks */}
-            <motion.section
+            <Motion.section
               className="tasks-section"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -1081,6 +1298,19 @@ function App() {
                 onOpenDashboard={() => setShowProjectDashboard(true)}
                 stats={projectStats}
               />
+              <DueFilter
+                value={dueFilter}
+                onChange={setDueFilter}
+              />
+              <div className="sort-controls">
+                <button
+                  type="button"
+                  className={`due-chip ${sortByDue ? 'active' : ''}`}
+                  onClick={() => setSortByDue((v) => !v)}
+                >
+                  Sort by Due
+                </button>
+              </div>
               <TagFilter
                 tasks={activeTasks}
                 selectedTags={selectedTags}
@@ -1096,25 +1326,25 @@ function App() {
                 tagPrefs={tagPrefs}
               />
               {activeTasks.length === 0 ? (
-                <motion.div
+                <Motion.div
                   className="empty-state"
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: 0.5 }}
                 >
-                  <motion.div
+                  <Motion.div
                     animate={{ rotate: 360 }}
                     transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
                     style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'center' }}
                   >
                     <GalaxyIcon size={80} />
-                  </motion.div>
+                  </Motion.div>
                   <h2>Your journey begins here</h2>
                   <p>Add your first task and watch the magic unfold</p>
-                </motion.div>
+                </Motion.div>
               ) : (
                 <TaskList
-                  tasks={visibleTasks}
+                  tasks={visibleTasksSorted}
                   onStatusChange={handleStatusChange}
                   onDelete={handleDeleteTask}
                   onUpdate={handleUpdateTask}
@@ -1125,29 +1355,36 @@ function App() {
                   groupByProject={groupByProject}
                   projects={projects}
                   projectStats={projectStats}
+                  allTasks={activeTasks}
+                  taskDeps={taskDeps}
+                  doneIdSet={doneIdSet}
+                  onChangeDependencies={setDependenciesForTask}
                 />
               )}
-            </motion.section>
+            </Motion.section>
           </div>
 
           <div className="column column-secondary">
             {/* Reward Reservoir */}
-            <motion.section
+            <Motion.section
               className="reservoir-section"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.5 }}
             >
-              <div ref={reservoirRef}>
-                <RewardReservoir
-                  level={reservoirLevel}
-                  maxLevel={100}
-                  onFull={handleReservoirFull}
-                />
+              <div className="plaque">
+                <div className="plaque-border" aria-hidden />
+                <div ref={reservoirRef}>
+                  <RewardReservoir
+                    level={reservoirLevel}
+                    maxLevel={100}
+                    onFull={handleReservoirFull}
+                  />
+                </div>
               </div>
-            </motion.section>
+            </Motion.section>
 
-            <motion.section
+            <Motion.section
               className="insights-section"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -1158,9 +1395,9 @@ function App() {
                 stats={projectStats}
                 onOpenDashboard={() => setShowProjectDashboard(true)}
               />
-            </motion.section>
+            </Motion.section>
 
-            <motion.section
+            <Motion.section
               className="insights-section"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -1196,7 +1433,7 @@ function App() {
                   </p>
                 </div>
                 <div className="energy-meter-wrapper">
-                  <motion.div
+                  <Motion.div
                     className="energy-meter"
                     style={{ transformOrigin: 'left center' }}
                     initial={{ scaleX: 0 }}
@@ -1233,9 +1470,23 @@ function App() {
               <div className="insight-tagstats">
                 <TagStats activeTasks={activeTasks} completedTasks={completedTasks} />
               </div>
-            </motion.section>
+
+              <div className="insight-deps">
+                <DependencyPanel
+                  activeTasks={activeTasks}
+                  completedTasks={completedTasks}
+                  taskDeps={taskDeps}
+                />
+              </div>
+            </Motion.section>
           </div>
         </div>
+      </div>
+      {/* Toast notifications */}
+      <div className="toast-container">
+        {toasts.map((t) => (
+          <div key={t.id} className="toast-item">{t.message}</div>
+        ))}
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
-import { motion, AnimatePresence } from 'framer-motion';
-import { useState, useRef, useEffect } from 'react';
+import { motion as Motion, AnimatePresence } from 'framer-motion';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import TaskDustTransformation from './TaskDustTransformation';
 
 const STATUS_COLORS = {
@@ -59,31 +59,52 @@ function hexToRGBA(hex, alpha) {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-export default function TaskItem({ task, onStatusChange, onDelete, onUpdate, crackingTask, reservoirPosition, tagPrefs = {}, projectInfo = null }) {
+export default function TaskItem({ task, onStatusChange, onDelete, onUpdate, crackingTask, reservoirPosition, tagPrefs = {}, projectInfo = null, allTasks = [], dependencyIds = [], doneIdSet = new Set(), onChangeDependencies }) {
   const [isHovered, setIsHovered] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState(task.title);
   const [editedDescription, setEditedDescription] = useState(task.description || '');
-  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
+  const [depSearch, setDepSearch] = useState('');
+  const [editedDueEnabled, setEditedDueEnabled] = useState(!!task.dueDate);
+  const [editedDueLocal, setEditedDueLocal] = useState(() => {
+    if (!task.dueDate) return '';
+    const d = task.dueDate instanceof Date ? task.dueDate : new Date(task.dueDate);
+    const pad = (n) => String(n).padStart(2, '0');
+    const yyyy = d.getFullYear();
+    const mm = pad(d.getMonth() + 1);
+    const dd = pad(d.getDate());
+    const hh = pad(d.getHours());
+    const mi = pad(d.getMinutes());
+    return `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
+  });
+  const [editedDeadlineType, setEditedDeadlineType] = useState(task.deadlineType || 'hard');
   const statusButtonRef = useRef(null);
   const taskItemRef = useRef(null);
   const titleInputRef = useRef(null);
   const isCracking = crackingTask?.id === task.id;
 
-  // Get container dimensions
-  useEffect(() => {
-    if (!taskItemRef.current) return;
-    
-    const updateSize = () => {
-      const rect = taskItemRef.current.getBoundingClientRect();
-      setContainerSize({ width: rect.width, height: rect.height });
-    };
-    
-    updateSize();
-    window.addEventListener('resize', updateSize);
-    return () => window.removeEventListener('resize', updateSize);
-  }, []);
+  // Derived
+  const dependencySet = useMemo(() => new Set((dependencyIds || []).map(String)), [dependencyIds]);
+  const candidateDeps = useMemo(() => {
+    const list = (allTasks || []).filter((t) => String(t.id) !== String(task.id));
+    if (!depSearch.trim()) return list;
+    const q = depSearch.trim().toLowerCase();
+    return list.filter((t) => (t.title || '').toLowerCase().includes(q));
+  }, [allTasks, task.id, depSearch]);
+  const isBlocked = useMemo(() => {
+    const deps = Array.isArray(dependencyIds) ? dependencyIds : [];
+    if (deps.length === 0) return false;
+    return deps.some((id) => !doneIdSet.has(id));
+  }, [dependencyIds, doneIdSet]);
+
+  // Due helpers
+  const dueDate = task.dueDate ? (task.dueDate instanceof Date ? task.dueDate : new Date(task.dueDate)) : null;
+  const now = new Date();
+  const overdue = !!dueDate && dueDate.getTime() < now.getTime();
+  const dueToday = !!dueDate && dueDate.toDateString() === now.toDateString();
+  const msLeft = dueDate ? dueDate.getTime() - now.getTime() : null;
+  const soon = !!dueDate && msLeft > 0 && msLeft <= 60 * 60 * 1000; // within 1 hour
 
   const getButtonPosition = () => {
     if (!statusButtonRef.current || !taskItemRef.current) {
@@ -114,6 +135,13 @@ export default function TaskItem({ task, onStatusChange, onDelete, onUpdate, cra
   const handleStatusClick = (e) => {
     e.stopPropagation(); // Prevent triggering edit mode
     if (isAnimating || isEditing) return;
+    // Prevent status changes when blocked
+    if (isBlocked && task.status !== 'done') {
+      // subtle shake animation as feedback
+      setIsAnimating(true);
+      setTimeout(() => setIsAnimating(false), 400);
+      return;
+    }
 
     setIsAnimating(true);
     const statusOrder = ['not_started', 'started', 'focusing', 'done'];
@@ -148,6 +176,8 @@ export default function TaskItem({ task, onStatusChange, onDelete, onUpdate, cra
     onUpdate(task.id, {
       title: editedTitle.trim(),
       description: editedDescription.trim(),
+      dueDate: editedDueEnabled && editedDueLocal ? new Date(editedDueLocal) : null,
+      deadlineType: editedDeadlineType || 'hard',
     });
     setIsEditing(false);
 
@@ -190,7 +220,7 @@ export default function TaskItem({ task, onStatusChange, onDelete, onUpdate, cra
   })();
 
   return (
-    <motion.div
+    <Motion.div
       ref={taskItemRef}
       className={`task-item ${task.status === 'done' ? 'completed' : ''}`}
       initial={{ opacity: 0, y: 20, scale: 0.9 }}
@@ -223,12 +253,11 @@ export default function TaskItem({ task, onStatusChange, onDelete, onUpdate, cra
           onComplete={() => {}}
           reservoirPosition={reservoirLocalPosition}
           originPosition={buttonPosition}
-          containerSize={containerSize}
         />
       )}
 
       <div className="task-content">
-        <motion.button
+        <Motion.button
           ref={statusButtonRef}
           className="task-status-button"
           onClick={handleStatusClick}
@@ -239,7 +268,7 @@ export default function TaskItem({ task, onStatusChange, onDelete, onUpdate, cra
         >
           <div className="status-indicator">
             <AnimatePresence mode="wait">
-              <motion.div
+              <Motion.div
                 key={task.status}
                 initial={{ opacity: 0, rotate: -90, scale: 0.5 }}
                 animate={{ opacity: 1, rotate: 0, scale: 1 }}
@@ -250,12 +279,12 @@ export default function TaskItem({ task, onStatusChange, onDelete, onUpdate, cra
                 {task.status === 'started' && '⟐'}
                 {task.status === 'focusing' && '✧'}
                 {task.status === 'done' && '✓'}
-              </motion.div>
+              </Motion.div>
             </AnimatePresence>
           </div>
-        </motion.button>
+        </Motion.button>
 
-        <motion.div
+        <Motion.div
           className="task-text"
           onClick={handleTaskClick}
           style={{ cursor: isEditing ? 'default' : 'pointer' }}
@@ -285,8 +314,104 @@ export default function TaskItem({ task, onStatusChange, onDelete, onUpdate, cra
                 rows="3"
                 onClick={(e) => e.stopPropagation()}
               />
+              {/* Due + type editor */}
+              <div className="task-deps-editor">
+                <label className="deps-label">Deadline</label>
+                <div className="due-row">
+                  <label className="due-toggle">
+                    <input
+                      type="checkbox"
+                      checked={editedDueEnabled}
+                      onChange={(e) => setEditedDueEnabled(e.target.checked)}
+                    />
+                    <span>Set due date/time</span>
+                  </label>
+                  {editedDueEnabled && (
+                    <input
+                      type="datetime-local"
+                      className="due-input"
+                      value={editedDueLocal}
+                      onChange={(e) => setEditedDueLocal(e.target.value)}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  )}
+                  <select
+                    className="deadline-type"
+                    value={editedDeadlineType}
+                    onChange={(e) => setEditedDeadlineType(e.target.value)}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <option value="hard">Hard</option>
+                    <option value="soft">Soft</option>
+                  </select>
+                </div>
+                {/* Quick reschedule suggestions */}
+                {editedDueEnabled && (
+                  <div className="due-quick">
+                    <span className="deps-label">Quick reschedule:</span>
+                    <div className="due-quick-row">
+                      {(() => {
+                        const now = new Date();
+                        const clone = (d) => new Date(d.getTime());
+                        const mk = (label, fn) => (
+                          <button key={label} type="button" className="secondary-button" onClick={(e) => { e.stopPropagation(); const d = fn(); const pad=(n)=>String(n).padStart(2,'0'); const yyyy=d.getFullYear(); const mm=pad(d.getMonth()+1); const dd=pad(d.getDate()); const hh=pad(d.getHours()); const mi=pad(d.getMinutes()); setEditedDueLocal(`${yyyy}-${mm}-${dd}T${hh}:${mi}`); }}>
+                            {label}
+                          </button>
+                        );
+                        const tonight = (() => { const d = clone(now); d.setHours(17,0,0,0); if (d < now) d.setDate(d.getDate()+1); return d;})();
+                        const tomorrow9 = (() => { const d = clone(now); d.setDate(d.getDate()+1); d.setHours(9,0,0,0); return d;})();
+                        const plus1h = (() => { const d = clone(now); d.setHours(d.getHours()+1); return d;})();
+                        const nextMon9 = (() => { const d = clone(now); const day = d.getDay(); const add = (8 - day) % 7 || 7; d.setDate(d.getDate()+add); d.setHours(9,0,0,0); return d;})();
+                        return [
+                          mk('+1h', () => plus1h),
+                          mk('Tonight 5pm', () => tonight),
+                          mk('Tomorrow 9am', () => tomorrow9),
+                          mk('Next Mon 9am', () => nextMon9),
+                        ];
+                      })()}
+                    </div>
+                  </div>
+                )}
+              </div>
+              {/* Dependencies selector */}
+              {Array.isArray(allTasks) && allTasks.length > 1 && (
+                <div className="task-deps-editor">
+                  <label className="deps-label">Depends on</label>
+                  <input
+                    type="text"
+                    className="deps-search"
+                    placeholder="Search tasks…"
+                    value={depSearch}
+                    onChange={(e) => setDepSearch(e.target.value)}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                  <div className="deps-list">
+                    {candidateDeps.map((t) => {
+                      const checked = dependencySet.has(String(t.id));
+                      return (
+                        <label key={t.id} className="deps-item" onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(e) => {
+                              const next = new Set(dependencySet);
+                              if (e.target.checked) next.add(String(t.id));
+                              else next.delete(String(t.id));
+                              onChangeDependencies && onChangeDependencies(task.id, Array.from(next));
+                            }}
+                          />
+                          <span className="deps-item-title">{t.title}</span>
+                        </label>
+                      );
+                    })}
+                    {candidateDeps.length === 0 && (
+                      <div className="deps-empty">No matching tasks</div>
+                    )}
+                  </div>
+                </div>
+              )}
               <div className="task-edit-actions">
-                <motion.button
+                <Motion.button
                   className="task-edit-save"
                   onClick={handleSave}
                   whileHover={{ scale: 1.05 }}
@@ -294,15 +419,15 @@ export default function TaskItem({ task, onStatusChange, onDelete, onUpdate, cra
                   disabled={!editedTitle.trim()}
                 >
                   Save
-                </motion.button>
-                <motion.button
+                </Motion.button>
+                <Motion.button
                   className="task-edit-cancel"
                   onClick={handleCancel}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                 >
                   Cancel
-                </motion.button>
+                </Motion.button>
               </div>
             </div>
           ) : (
@@ -316,6 +441,28 @@ export default function TaskItem({ task, onStatusChange, onDelete, onUpdate, cra
                   {PRIORITY_LABELS[task.priority]}
                 </span>
               </div>
+              {/* Due status row */}
+              {dueDate && (
+                <div className="task-due-row">
+                  <span className={`due-badge ${overdue ? 'overdue' : soon ? 'soon' : dueToday ? 'today' : ''} ${task.deadlineType === 'soft' ? 'soft' : 'hard'}`}>
+                    Due {dueDate.toLocaleString()}{task.deadlineType === 'soft' ? ' (soft)' : ''}
+                  </span>
+                </div>
+              )}
+              {isBlocked && (
+                <div className="task-blocked-row" title="This task is waiting on other tasks to finish">
+                  <span className="blocked-badge">Blocked</span>
+                  <div className="blocked-deps">
+                    {(dependencyIds || []).filter((id) => !doneIdSet.has(id)).map((id) => {
+                      const t = (allTasks || []).find((x) => String(x.id) === String(id));
+                      const label = t?.title || `Task ${String(id).slice(0, 6)}`;
+                      return (
+                        <span key={id} className="blocked-chip">{label}</span>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
               {projectInfo && (
                 <div className="task-project-row">
                   <span
@@ -351,9 +498,9 @@ export default function TaskItem({ task, onStatusChange, onDelete, onUpdate, cra
               )}
             </>
           )}
-        </motion.div>
+        </Motion.div>
 
-        <motion.button
+        <Motion.button
           className="task-delete"
           onClick={(e) => {
             e.stopPropagation();
@@ -364,12 +511,12 @@ export default function TaskItem({ task, onStatusChange, onDelete, onUpdate, cra
           aria-label="Delete task"
         >
           ×
-        </motion.button>
+        </Motion.button>
       </div>
 
       {/* Magical glow effect when hovered */}
       {isHovered && task.status !== 'done' && (
-        <motion.div
+        <Motion.div
           className="task-glow"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -379,6 +526,6 @@ export default function TaskItem({ task, onStatusChange, onDelete, onUpdate, cra
           }}
         />
       )}
-    </motion.div>
+    </Motion.div>
   );
 }

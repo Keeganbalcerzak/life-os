@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion as Motion, AnimatePresence } from 'framer-motion';
 import LoginForm from './LoginForm';
 import SignUpForm from './SignUpForm';
 
@@ -10,12 +10,12 @@ export default function AuthScreen() {
     <div className="auth-screen">
       <div className="auth-container">
         {/* Left side - Branding */}
-        <motion.div
+        <Motion.div
           className="auth-branding"
           initial={{ opacity: 0, x: -50 }}
           animate={{ opacity: 1, x: 0 }}
         >
-          <motion.h1
+          <Motion.h1
             className="auth-logo"
             animate={{
               textShadow: [
@@ -31,7 +31,7 @@ export default function AuthScreen() {
             }}
           >
             Life OS
-          </motion.h1>
+          </Motion.h1>
           <p className="auth-tagline">Your all-in-one life management platform</p>
           <div className="auth-features">
             <div className="auth-feature">
@@ -47,10 +47,10 @@ export default function AuthScreen() {
               <span>Sync across all your devices</span>
             </div>
           </div>
-        </motion.div>
+        </Motion.div>
 
         {/* Right side - Auth forms */}
-        <motion.div
+        <Motion.div
           className="auth-forms-container"
           initial={{ opacity: 0, x: 50 }}
           animate={{ opacity: 1, x: 0 }}
@@ -69,7 +69,7 @@ export default function AuthScreen() {
               />
             )}
           </AnimatePresence>
-        </motion.div>
+        </Motion.div>
       </div>
     </div>
   );

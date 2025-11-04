@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { motion as Motion } from 'framer-motion';
 
 const normalizeId = (id) => (typeof id === 'string' ? id : id?.toString?.() || '');
 
@@ -54,7 +54,7 @@ export default function ProjectSummary({ projects = [], stats = {}, onOpenDashbo
           const health = stat.health || {};
 
           return (
-            <motion.article
+            <Motion.article
               key={id}
               className={`project-card project-card-${index % 3}`}
               initial={{ opacity: 0, y: 10 }}
@@ -142,7 +142,7 @@ export default function ProjectSummary({ projects = [], stats = {}, onOpenDashbo
                   )}
                 </div>
               )}
-            </motion.article>
+            </Motion.article>
           );
         })}
       </div>
