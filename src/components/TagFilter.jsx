@@ -2,6 +2,7 @@ import { motion } from 'framer-motion';
 
 export default function TagFilter({ tasks, selectedTags, onToggleTag, onClear, groupByTag, onToggleGroup, tagPrefs = {} }) {
   const tagSet = new Map();
+  // Add tags from tasks
   (tasks || []).forEach((t) => {
     (t.tags || []).forEach((raw) => {
       const k = (raw || '').toString().trim();
@@ -9,6 +10,13 @@ export default function TagFilter({ tasks, selectedTags, onToggleTag, onClear, g
       const key = k.toLowerCase();
       tagSet.set(key, k); // preserve original casing of last seen
     });
+  });
+  // Add all configured tags from tagPrefs
+  Object.keys(tagPrefs || {}).forEach((k) => {
+    const key = k.toLowerCase();
+    if (!tagSet.has(key)) {
+      tagSet.set(key, k);
+    }
   });
   const tags = Array.from(tagSet.entries()).map(([key, label]) => ({ key, label }));
   tags.sort((a, b) => a.label.localeCompare(b.label));

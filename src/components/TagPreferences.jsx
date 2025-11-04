@@ -61,7 +61,7 @@ export default function TagPreferences({ tasks, value, onChange, alwaysOpen = fa
                 onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addNewTag(); } }}
               />
             </label>
-            <button className="logout-button" type="button" onClick={addNewTag}>Add</button>
+            <button className="secondary-button" type="button" onClick={addNewTag}>Add</button>
           </div>
           {tags.length === 0 ? (
             <div className="filter-empty">No tags yet</div>
@@ -73,43 +73,48 @@ export default function TagPreferences({ tasks, value, onChange, alwaysOpen = fa
                 const bd = pref.color ? hexToRGBA(pref.color, 0.6) : undefined;
                 return (
                   <div key={t} className="tag-pref-row">
-                    <span className="tag-chip" style={{ background: bg, borderColor: bd }}>
-                      {pref.icon ? <span style={{ marginRight: 6 }}>{pref.icon}</span> : null}
-                      {t}
-                    </span>
-                    <label className="tag-pref-field">
-                      <span>Color</span>
-                      <input type="color" value={pref.color || '#3b82f6'} onChange={(e) => updateTag(t, { color: e.target.value })} />
-                    </label>
-                    <label className="tag-pref-field">
-                      <span>Icon</span>
-                      <input type="text" maxLength={2} placeholder="✨" value={pref.icon || ''} onChange={(e) => updateTag(t, { icon: e.target.value })} />
-                    </label>
-                    <label className="tag-pref-field">
-                      <span>Parent</span>
-                      <input
-                        type="text"
-                        placeholder="(optional) Parent tag"
-                        value={pref.parent || ''}
-                        onChange={(e) => updateTag(t, { parent: e.target.value })}
-                        list="tag-parent-suggestions"
-                      />
-                    </label>
-                    <label className="tag-pref-field">
-                      <span>Automation</span>
-                      <select
-                        value={pref.automation || ''}
-                        onChange={(e) => updateTag(t, { automation: e.target.value })}
-                      >
-                        <option value="">None</option>
-                        <option value="priority:low">Set priority: Low</option>
-                        <option value="priority:medium">Set priority: Medium</option>
-                        <option value="priority:high">Set priority: High</option>
-                        <option value="status:not_started">Set status: Not Started</option>
-                        <option value="status:started">Set status: Started</option>
-                        <option value="status:focusing">Set status: Focusing</option>
-                      </select>
-                    </label>
+                    <div className="tag-pref-header">
+                      <span className="tag-chip" style={{ background: bg, borderColor: bd }}>
+                        {pref.icon ? <span style={{ marginRight: 6 }}>{pref.icon}</span> : null}
+                        {t}
+                      </span>
+                    </div>
+                    <div className="tag-pref-fields">
+                      <label className="tag-pref-field">
+                        <span>Color</span>
+                        <input type="color" value={pref.color || '#3b82f6'} onChange={(e) => updateTag(t, { color: e.target.value })} />
+                      </label>
+                      <label className="tag-pref-field">
+                        <span>Icon</span>
+                        <input type="text" maxLength={2} placeholder="✨" value={pref.icon || ''} onChange={(e) => updateTag(t, { icon: e.target.value })} />
+                      </label>
+                      <label className="tag-pref-field">
+                        <span>Parent</span>
+                        <input
+                          type="text"
+                          placeholder="(optional) Parent tag"
+                          value={pref.parent || ''}
+                          onChange={(e) => updateTag(t, { parent: e.target.value })}
+                          list="tag-parent-suggestions"
+                        />
+                      </label>
+                      <label className="tag-pref-field">
+                        <span>Automation</span>
+                        <select
+                          value={pref.automation || ''}
+                          onChange={(e) => updateTag(t, { automation: e.target.value })}
+                        >
+                          <option value="">None</option>
+                          <option value="priority:low">Set priority: Low</option>
+                          <option value="priority:medium">Set priority: Medium</option>
+                          <option value="priority:high">Set priority: High</option>
+                          <option value="priority:milestone">Set priority: Milestone</option>
+                          <option value="status:not_started">Set status: Not Started</option>
+                          <option value="status:started">Set status: Started</option>
+                          <option value="status:focusing">Set status: Focusing</option>
+                        </select>
+                      </label>
+                    </div>
                   </div>
                 );
               })}
@@ -123,7 +128,7 @@ export default function TagPreferences({ tasks, value, onChange, alwaysOpen = fa
           </datalist>
           <div className="tag-prefs-actions">
             <button className="filter-clear" onClick={() => setDraft({})}>Reset</button>
-            <button className="logout-button" onClick={save}>Save</button>
+            <button className="secondary-button" onClick={save}>Save</button>
           </div>
         </div>
       )}

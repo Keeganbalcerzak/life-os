@@ -941,7 +941,7 @@ function App() {
                 {user?.email || 'Logged in'}
               </span>
               <button
-                className="logout-button"
+                className="secondary-button"
                 onClick={() => setShowTagSettings(true)}
               >
                 Tag Settings

@@ -19,7 +19,15 @@ export default function TagSettings({ tasks, tagPrefs, onChange, onBack }) {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          <button className="back-button" type="button" onClick={() => onBack?.()}>← Back</button>
+          <motion.button 
+            className="back-button" 
+            type="button" 
+            onClick={() => onBack?.()}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            ← Back
+          </motion.button>
           <h1 className="settings-title">Tag Settings</h1>
           <p className="settings-subtitle">Customize colors and icons for your tags</p>
 
