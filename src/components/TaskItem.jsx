@@ -59,12 +59,13 @@ function hexToRGBA(hex, alpha) {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-export default function TaskItem({ task, onStatusChange, onDelete, onUpdate, crackingTask, reservoirPosition, tagPrefs = {}, projectInfo = null, allTasks = [], dependencyIds = [], doneIdSet = new Set(), onChangeDependencies }) {
+export default function TaskItem({ task, onStatusChange, onDelete, onUpdate, onUpdateEstimate, crackingTask, reservoirPosition, tagPrefs = {}, projectInfo = null, allTasks = [], dependencyIds = [], doneIdSet = new Set(), onChangeDependencies }) {
   const [isHovered, setIsHovered] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState(task.title);
   const [editedDescription, setEditedDescription] = useState(task.description || '');
+  const [editedEstimate, setEditedEstimate] = useState(() => (task.estimatedMinutes ? String(task.estimatedMinutes) : ''));
   const [depSearch, setDepSearch] = useState('');
   const [editedDueEnabled, setEditedDueEnabled] = useState(!!task.dueDate);
   const [editedDueLocal, setEditedDueLocal] = useState(() => {
@@ -179,6 +180,11 @@ export default function TaskItem({ task, onStatusChange, onDelete, onUpdate, cra
       dueDate: editedDueEnabled && editedDueLocal ? new Date(editedDueLocal) : null,
       deadlineType: editedDeadlineType || 'hard',
     });
+    // Update estimate mapping separately
+    if (onUpdateEstimate) {
+      const minutes = editedEstimate ? Number(editedEstimate) : NaN;
+      onUpdateEstimate(task.id, minutes);
+    }
     setIsEditing(false);
 
     // Haptic feedback
@@ -207,6 +213,15 @@ export default function TaskItem({ task, onStatusChange, onDelete, onUpdate, cra
 
   const currentAnimation = statusAnimations[task.status] || statusAnimations.not_started;
   const buttonPosition = getButtonPosition();
+  const formatMinutes = (mins) => {
+    const m = Number(mins);
+    if (!isFinite(m) || m <= 0) return '';
+    const h = Math.floor(m / 60);
+    const mm = m % 60;
+    if (h && mm) return `${h}h ${mm}m`;
+    if (h) return `${h}h`;
+    return `${mm}m`;
+  };
 
   // Convert reservoir (viewport %) to local task container % to unify coordinates
   const reservoirLocalPosition = (() => {
@@ -373,6 +388,35 @@ export default function TaskItem({ task, onStatusChange, onDelete, onUpdate, cra
                   </div>
                 )}
               </div>
+              {/* Estimated duration editor */}
+              <div className="task-deps-editor">
+                <label className="deps-label">Estimated duration</label>
+                <div className="due-row">
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    className="due-input"
+                    placeholder="minutes (e.g., 45)"
+                    value={editedEstimate}
+                    onChange={(e) => setEditedEstimate(e.target.value)}
+                    onClick={(e) => e.stopPropagation()}
+                    style={{ maxWidth: 160 }}
+                  />
+                  <div className="due-quick-row" style={{ marginLeft: 8 }}>
+                    {[15, 30, 45, 60, 90, 120].map((m) => (
+                      <button
+                        key={m}
+                        type="button"
+                        className="secondary-button"
+                        onClick={(e) => { e.stopPropagation(); setEditedEstimate(String(m)); }}
+                      >
+                        {m}m
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
               {/* Dependencies selector */}
               {Array.isArray(allTasks) && allTasks.length > 1 && (
                 <div className="task-deps-editor">
@@ -440,6 +484,11 @@ export default function TaskItem({ task, onStatusChange, onDelete, onUpdate, cra
                 >
                   {PRIORITY_LABELS[task.priority]}
                 </span>
+                {task.estimatedMinutes ? (
+                  <span className="tag-chip" style={{ marginLeft: 8 }} title="Estimated duration">
+                    ⏱ {formatMinutes(task.estimatedMinutes)}
+                  </span>
+                ) : null}
               </div>
               {/* Due status row */}
               {dueDate && (

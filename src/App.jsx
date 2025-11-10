@@ -80,6 +80,8 @@ function App() {
       return {};
     }
   });
+  // Task duration estimates (minutes) mapping: { [taskId]: number }
+  const [taskEstimates, setTaskEstimates] = useLocalStorage('lifeOS_taskEstimates', {});
   // Simple toast notifications
   const [toasts, setToasts] = useState([]);
   // Due filters and notifications
@@ -415,6 +417,10 @@ function App() {
         };
 
         setActiveTasks((prev) => [supabaseTask, ...prev]);
+        // Persist estimate mapping if provided
+        if (autoTask.estimatedMinutes && Number(autoTask.estimatedMinutes) > 0) {
+          setTaskEstimates((prev) => ({ ...prev, [data.id]: Number(autoTask.estimatedMinutes) }));
+        }
         // Save dependencies mapping if provided
         if (Array.isArray(task.dependencies)) {
           setTaskDeps((prev) => ({ ...prev, [data.id]: task.dependencies }));
@@ -430,6 +436,9 @@ function App() {
       id: Date.now() + Math.random(),
     };
     setActiveTasks((prev) => [localTask, ...prev]);
+    if (autoTask.estimatedMinutes && Number(autoTask.estimatedMinutes) > 0) {
+      setTaskEstimates((prev) => ({ ...prev, [localTask.id]: Number(autoTask.estimatedMinutes) }));
+    }
     if (Array.isArray(task.dependencies)) {
       setTaskDeps((prev) => ({ ...prev, [localTask.id]: task.dependencies }));
     }
@@ -751,6 +760,12 @@ function App() {
       });
       return next;
     });
+    // Remove estimate mapping for this task
+    setTaskEstimates((prev) => {
+      const next = { ...prev };
+      delete next[taskId];
+      return next;
+    });
 
     if (usingSupabase && isAuthenticated && user) {
       try {
@@ -841,6 +856,17 @@ function App() {
       }
     }
   }, [usingSupabase, isAuthenticated, user, setActiveTasks, setCompletedTasks, tagPrefs, activeTasks, completedTasks]);
+
+  // Update estimate (minutes) for a task, stored locally per task id
+  const handleUpdateTaskEstimate = useCallback((taskId, minutes) => {
+    const val = Number(minutes);
+    setTaskEstimates((prev) => {
+      const next = { ...prev };
+      if (!isFinite(val) || val <= 0) delete next[taskId];
+      else next[taskId] = Math.round(val);
+      return next;
+    });
+  }, [setTaskEstimates]);
 
   // Dependency helpers
   const setDependenciesForTask = useCallback((taskId, depIds) => {
@@ -1359,6 +1385,8 @@ function App() {
                   taskDeps={taskDeps}
                   doneIdSet={doneIdSet}
                   onChangeDependencies={setDependenciesForTask}
+                  taskEstimates={taskEstimates}
+                  onUpdateEstimate={handleUpdateTaskEstimate}
                 />
               )}
             </Motion.section>

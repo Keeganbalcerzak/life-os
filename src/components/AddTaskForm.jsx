@@ -22,6 +22,7 @@ export default function AddTaskForm({ onAdd, projects = [], onOpenProjects, tagP
   const [dueDateEnabled, setDueDateEnabled] = useState(false);
   const [dueDateLocal, setDueDateLocal] = useState(''); // yyyy-MM-ddTHH:mm
   const [deadlineType, setDeadlineType] = useState('hard');
+  const [estimatedMinutes, setEstimatedMinutes] = useState('');
 
   const DEFAULT_TAGS = ['Work', 'Personal', 'Health', 'Learning'];
 
@@ -95,6 +96,7 @@ export default function AddTaskForm({ onAdd, projects = [], onOpenProjects, tagP
       dependencies: depIds,
       dueDate: (dueDateEnabled && dueDateLocal) ? new Date(dueDateLocal) : null,
       deadlineType,
+      estimatedMinutes: estimatedMinutes ? Number(estimatedMinutes) : undefined,
       status: 'not_started',
       completed: false,
     });
@@ -112,6 +114,7 @@ export default function AddTaskForm({ onAdd, projects = [], onOpenProjects, tagP
     setDueDateEnabled(false);
     setDueDateLocal('');
     setDeadlineType('hard');
+    setEstimatedMinutes('');
   };
 
   const handleKeyPress = (e) => {
@@ -399,6 +402,31 @@ export default function AddTaskForm({ onAdd, projects = [], onOpenProjects, tagP
                   <option value="hard">Hard</option>
                   <option value="soft">Soft</option>
                 </select>
+              </div>
+              <label className="priority-label" style={{ marginTop: 8 }}>Estimated duration</label>
+              <div className="due-row">
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  className="due-input"
+                  placeholder="minutes (e.g., 45)"
+                  value={estimatedMinutes}
+                  onChange={(e) => setEstimatedMinutes(e.target.value)}
+                  style={{ maxWidth: 180 }}
+                />
+                <div className="due-quick-row" style={{ marginLeft: 8 }}>
+                  {[15, 30, 45, 60, 90, 120].map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      className="secondary-button"
+                      onClick={() => setEstimatedMinutes(String(m))}
+                    >
+                      {m}m
+                    </button>
+                  ))}
+                </div>
               </div>
             </Motion.div>
             

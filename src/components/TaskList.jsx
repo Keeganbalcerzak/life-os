@@ -24,6 +24,8 @@ export default function TaskList({
   taskDeps = {},
   doneIdSet = new Set(),
   onChangeDependencies,
+  taskEstimates = {},
+  onUpdateEstimate,
 }) {
   // Only show active tasks - no "done" status
   const notStartedTasks = tasks.filter((t) => t.status === 'not_started');
@@ -87,10 +89,11 @@ export default function TaskList({
             return (
               <TaskItem
                 key={task.id}
-                task={task}
+                task={{ ...task, estimatedMinutes: taskEstimates?.[task.id] }}
                 onStatusChange={onStatusChange}
                 onDelete={onDelete}
                 onUpdate={onUpdate}
+                onUpdateEstimate={onUpdateEstimate}
                 crackingTask={crackingTask}
                 reservoirPosition={reservoirPosition}
                 tagPrefs={tagPrefs}

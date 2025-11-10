@@ -1,6 +1,5 @@
 # 🌌 Life OS
-
-Life OS is an all-in-one life management platform engineered to feel like a personal galaxy. Tasks emit stardust, reservoirs glow with kinetic liquid energy, and every click tries to reward an ADHD brain with motion, color, and delight. The app can run completely offline with local storage, or sync securely across devices through Supabase authentication and Postgres.
+3 The app can run completely offline with local storage, or sync securely across devices through Supabase authentication and Postgres.
 
 ---
 
